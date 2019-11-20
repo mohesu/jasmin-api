@@ -7,9 +7,4 @@ python /jasmin_api/manage.py collectstatic << 'EOF'
 yes
 EOF
 
-python /jasmin_api/manage.py createsuperuser << 'EOF'
-root
-zoug!@#
-EOF
-
 exec "$@"
