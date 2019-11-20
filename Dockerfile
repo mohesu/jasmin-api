@@ -6,6 +6,8 @@ COPY . .
 
 RUN pip install -r requirements.txt
 
+RUN chown +x entrypoint.sh
+
 EXPOSE 8000 8080
 
 ENTRYPOINT ["/entrypoint.sh"]
