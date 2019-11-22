@@ -3,7 +3,7 @@ import os
 from dotenv import load_dotenv, find_dotenv
 from django.contrib.auth import get_user_model
 
-load_dotenv(find_dotenv)
+load_dotenv(find_dotenv())
 
 
 User = get_user_model()
