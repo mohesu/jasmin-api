@@ -16,6 +16,7 @@ TELNET_PW = os.getenv("TELNET_PW") or "jclipwd" # no alternative storing as plai
 TELNET_TIMEOUT = os.getenv("TELNET_TIMEOUT") or 10 # reasonable value for intranet.
 JASMIN_DOCKER = os.getenv("JASMIN_DOCKER") or False # manage multiple instances of jasmin in docker
 JASMIN_DOCKER_PORTS = os.getenv("JASMIN_DOCKER_PORTS") or []
+DEBUG = os.getenv("DEBUG") or False
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
