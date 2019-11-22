@@ -10,13 +10,13 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Jasmin telnet defaults, override in local_settings.py
 TELNET_HOST = os.getenv("TELNET_HOST") or "localhost"
-TELNET_PORT = os.getenv("TELNET_PORT") or 8990
+TELNET_PORT = int(os.getenv("TELNET_PORT")) or 8990
 TELNET_USERNAME = os.getenv("TELNET_USERNAME") or "jcliadmin"
 TELNET_PW = os.getenv("TELNET_PW") or "jclipwd" # no alternative storing as plain text
-TELNET_TIMEOUT = os.getenv("TELNET_TIMEOUT") or 10 # reasonable value for intranet.
-JASMIN_DOCKER = os.getenv("JASMIN_DOCKER") or False # manage multiple instances of jasmin in docker
-JASMIN_DOCKER_PORTS = os.getenv("JASMIN_DOCKER_PORTS") or []
-DEBUG = os.getenv("DEBUG") or False
+TELNET_TIMEOUT = int(os.getenv("TELNET_TIMEOUT")) or 10 # reasonable value for intranet.
+JASMIN_DOCKER = bool(os.getenv("JASMIN_DOCKER")) or False # manage multiple instances of jasmin in docker
+JASMIN_DOCKER_PORTS = eval(os.getenv("JASMIN_DOCKER_PORTS")) or []
+DEBUG = bool(os.getenv("DEBUG")) or False
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
