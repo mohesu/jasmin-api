@@ -1,6 +1,6 @@
 FROM python:2.7-alpine
 
-RUN apk add busybox-extras
+RUN apk add busybox-extras bashg
 
 COPY . .
 
