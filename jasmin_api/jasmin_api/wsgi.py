@@ -9,9 +9,9 @@ https://docs.djangoproject.com/en/1.8/howto/deployment/wsgi/
 
 import os
 from dotenv import load_dotenv, find_dotenv
-load_dotenv(find_dotenv())
-
 from django.core.wsgi import get_wsgi_application
+
+load_dotenv(find_dotenv())
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "jasmin_api.settings")
 

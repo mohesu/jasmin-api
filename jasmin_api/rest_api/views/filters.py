@@ -7,7 +7,7 @@ from django.utils.datastructures import MultiValueDictKeyError
 from rest_framework.viewsets import ViewSet
 from rest_framework.decorators import list_route
 
-from rest_api.tools import set_ikeys, split_cols, sync_conf_instances
+from rest_api.tools import set_ikeys, split_cols
 from rest_api.exceptions import (JasminSyntaxError, JasminError,
                         UnknownError, MissingKeyError,
                         MutipleValuesRequiredKeyError, ObjectNotFoundError)
@@ -118,14 +118,13 @@ class FiltersViewSet(ViewSet):
                 ikeys['tag'] = parameter
             elif ftype == 'evalpyfilter':
                 ikeys['pyCode'] = parameter
+        print ikeys
         set_ikeys(telnet, ikeys)
         telnet.sendline('persist\n')
         telnet.expect(r'.*' + STANDARD_PROMPT)
-        if settings.JASMIN_DOCKER:
-            sync_conf_instances(request.telnet_list)
         return JsonResponse({'filter': self.get_filter(telnet, fid)})
 
-    def simple_filter_action(self, telnet, telnet_list, action, fid, return_filter=True):
+    def simple_filter_action(self, telnet, action, fid, return_filter=True):
         telnet.sendline('filter -%s %s' % (action, fid))
         matched_index = telnet.expect([
             r'.+Successfully(.+)' + STANDARD_PROMPT,
@@ -136,12 +135,8 @@ class FiltersViewSet(ViewSet):
             telnet.sendline('persist\n')
             if return_filter:
                 telnet.expect(r'.*' + STANDARD_PROMPT)
-                if settings.JASMIN_DOCKER:
-                    sync_conf_instances(telnet_list)
                 return JsonResponse({'filter': self.get_filter(telnet, fid)})
             else:
-                if settings.JASMIN_DOCKER:
-                    sync_conf_instances(telnet_list)
                 return JsonResponse({'fid': fid})
         elif matched_index == 1:
             raise UnknownError(detail='No filter:' +  fid)
@@ -158,4 +153,4 @@ class FiltersViewSet(ViewSet):
         - 400: other error
         """
         return self.simple_filter_action(
-            request.telnet, request.telnet_list, 'r', fid, return_filter=False)
+            request.telnet, 'r', fid, return_filter=False)

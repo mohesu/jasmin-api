@@ -7,7 +7,7 @@ from django.utils.datastructures import MultiValueDictKeyError
 from rest_framework.viewsets import ViewSet
 from rest_framework.decorators import list_route
 
-from rest_api.tools import set_ikeys, split_cols, sync_conf_instances
+from rest_api.tools import set_ikeys, split_cols
 from rest_api.exceptions import (JasminSyntaxError, JasminError,
                         UnknownError, MissingKeyError,
                         MutipleValuesRequiredKeyError, ObjectNotFoundError)
@@ -71,8 +71,6 @@ class MORouterViewSet(ViewSet):
         telnet.expect([r'(.+)\n' + STANDARD_PROMPT])
         telnet.sendline('persist\n')
         telnet.expect(r'.*' + STANDARD_PROMPT)
-        if settings.JASMIN_DOCKER:
-                sync_conf_instances(request.telnet_list)
         return JsonResponse({'morouters': []})
 
     def create(self, request):
@@ -145,11 +143,9 @@ class MORouterViewSet(ViewSet):
         set_ikeys(telnet, ikeys)
         telnet.sendline('persist\n')
         telnet.expect(r'.*' + STANDARD_PROMPT)
-        if settings.JASMIN_DOCKER:
-                sync_conf_instances(request.telnet_list)
         return JsonResponse({'morouter': self.get_router(telnet, order)})
 
-    def simple_morouter_action(self, telnet, telnet_list, action, order, return_moroute=True):
+    def simple_morouter_action(self, telnet, action, order, return_moroute=True):
         telnet.sendline('morouter -%s %s' % (action, order))
         matched_index = telnet.expect([
             r'.+Successfully(.+)' + STANDARD_PROMPT,
@@ -160,12 +156,8 @@ class MORouterViewSet(ViewSet):
             telnet.sendline('persist\n')
             if return_moroute:
                 telnet.expect(r'.*' + STANDARD_PROMPT)
-                if settings.JASMIN_DOCKER:
-                    sync_conf_instances(telnet_list)
-                return JsonResponse({'morouter': self.get_router(telnet, order)})
+                return JsonResponse({'morouter': self.get_router(telnet, fid)})
             else:
-                if settings.JASMIN_DOCKER:
-                    sync_conf_instances(telnet_list)
                 return JsonResponse({'order': order})
         elif matched_index == 1:
             raise UnknownError(detail='No router:' +  order)
@@ -182,4 +174,4 @@ class MORouterViewSet(ViewSet):
         - 400: other error
         """
         return self.simple_morouter_action(
-            request.telnet, request.telnet_list, 'r', order, return_moroute=False)
+            request.telnet, 'r', order, return_moroute=False)

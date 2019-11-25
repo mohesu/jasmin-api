@@ -5,7 +5,6 @@ from rest_framework.viewsets import ViewSet
 from rest_framework.decorators import detail_route
 
 from rest_api.exceptions import MissingKeyError, ActionFailed, ObjectNotFoundError
-from rest_api.tools import sync_conf_instances
 
 STANDARD_PROMPT = settings.STANDARD_PROMPT
 INTERACTIVE_PROMPT = settings.INTERACTIVE_PROMPT
@@ -66,13 +65,11 @@ class GroupViewSet(ViewSet):
         if matched_index == 0:
             gid = telnet.match.group(2).strip()
             telnet.sendline('persist\n')
-            if settings.JASMIN_DOCKER:
-                sync_conf_instances(request.telnet_list)
             return JsonResponse({'name': gid})
         else:
             raise ActionFailed(telnet.match.group(1))
 
-    def simple_group_action(self, telnet, telnet_list, action, gid):
+    def simple_group_action(self, telnet, action, gid):
         telnet.sendline('group -%s %s' % (action, gid))
         matched_index = telnet.expect([
             r'.+Successfully(.+)' + STANDARD_PROMPT,
@@ -81,8 +78,6 @@ class GroupViewSet(ViewSet):
         ])
         if matched_index == 0:
             telnet.sendline('persist\n')
-            if settings.JASMIN_DOCKER:
-                sync_conf_instances(telnet_list)
             return JsonResponse({'name': gid})
         elif matched_index == 1:
             raise ObjectNotFoundError('Unknown group: %s' % gid)
@@ -98,7 +93,7 @@ class GroupViewSet(ViewSet):
         - 404: nonexistent group
         - 400: other error
         """
-        return self.simple_group_action(request.telnet, request.telnet_list, 'r', gid)
+        return self.simple_group_action(request.telnet, 'r', gid)
 
     @detail_route(methods=['put'])
     def enable(self, request, gid):
@@ -110,7 +105,7 @@ class GroupViewSet(ViewSet):
         - 404: nonexistent group
         - 400: other error
         """
-        return self.simple_group_action(request.telnet, request.telnet_list, 'e', gid)
+        return self.simple_group_action(request.telnet, 'e', gid)
 
 
     @detail_route(methods=['put'])
@@ -125,4 +120,4 @@ class GroupViewSet(ViewSet):
         - 404: nonexistent group
         - 400: other error
         """
-        return self.simple_group_action(request.telnet, request.telnet_list, 'd', gid)
+        return self.simple_group_action(request.telnet, 'd', gid)
