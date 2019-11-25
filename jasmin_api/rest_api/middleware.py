@@ -4,6 +4,7 @@ from django.conf import settings
 
 from .exceptions import TelnetUnexpectedResponse, TelnetConnectionTimeout, TelnetLoginFailed
 
+
 class TelnetConnectionMiddleware(object):
     def process_request(self, request):
         """Add a telnet connection to all request paths that start with /api/
@@ -34,7 +35,31 @@ class TelnetConnectionMiddleware(object):
             raise TelnetLoginFailed
         else:
             request.telnet = telnet
-            return None
+        if settings.JASMIN_DOCKER:
+            request.telnet_list = []
+            for port in settings.JASMIN_DOCKER_PORTS:
+                try:
+                    telnet_item = pexpect.spawn(
+                        "telnet %s %s" %
+                        (settings.TELNET_HOST, port),
+                        timeout=settings.TELNET_TIMEOUT,
+                    )
+                    telnet_item.expect_exact('Username: ')
+                    telnet_item.sendline(settings.TELNET_USERNAME)
+                    telnet_item.expect_exact('Password: ')
+                    telnet_item.sendline(settings.TELNET_PW)
+                except pexpect.EOF:
+                    raise TelnetUnexpectedResponse
+                except pexpect.TIMEOUT:
+                    raise TelnetConnectionTimeout
+
+                try:
+                    telnet_item.expect_exact(settings.STANDARD_PROMPT)
+                except pexpect.EOF:
+                    raise TelnetLoginFailed
+                else:
+                    request.telnet_list.append(telnet_item)
+        return None
 
     def process_response(self, request, response):
         "Make sure telnet connection is closed when unleashing response back to client"

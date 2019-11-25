@@ -3,11 +3,11 @@ from django.http import JsonResponse
 
 from rest_framework.viewsets import ViewSet
 from rest_framework.parsers import JSONParser
-from rest_framework.decorators import detail_route, parser_classes
-from rest_api.tools import set_ikeys, split_cols
+from rest_framework.decorators import list_route, detail_route, parser_classes
+from rest_api.tools import split_cols, sync_conf_instances
 from rest_api.exceptions import (
     JasminSyntaxError, JasminError, ActionFailed,
-    ObjectNotFoundError, UnknownError, 
+    ObjectNotFoundError, UnknownError,
 )
 
 STANDARD_PROMPT = settings.STANDARD_PROMPT
@@ -19,7 +19,7 @@ class SMPPCCMViewSet(ViewSet):
     lookup_field = 'cid'
 
     def get_smppccm(self, telnet, cid, silent=False):
-        #Some of this could be abstracted out - similar pattern in users.py
+        # Some of this could be abstracted out - similar pattern in users.py
         telnet.sendline('smppccm -s ' + cid)
         matched_index = telnet.expect([
                 r'.+Unknown connector:.*' + STANDARD_PROMPT,
@@ -47,7 +47,7 @@ class SMPPCCMViewSet(ViewSet):
             return []
         return split_cols(result[2:-2])
 
-    def simple_smppccm_action(self, telnet, action, cid):
+    def simple_smppccm_action(self, telnet, telnet_list, action, cid):
         telnet.sendline('smppccm -%s %s' % (action, cid))
         matched_index = telnet.expect([
             r'.+Successfully(.+)' + STANDARD_PROMPT,
@@ -56,11 +56,34 @@ class SMPPCCMViewSet(ViewSet):
         ])
         if matched_index == 0:
             telnet.sendline('persist\n')
+            if settings.JASMIN_DOCKER:
+                sync_conf_instances(telnet_list)
             return JsonResponse({'name': cid})
         elif matched_index == 1:
             raise ObjectNotFoundError('Unknown SMPP Connector: %s' % cid)
         else:
             raise ActionFailed(telnet.match.group(1))
+
+    @list_route(methods=['get'])
+    def list_smppc_status(self, request):
+        """List SMPP Client Connectors Status. No parameters
+        """
+        telnet_list = [request.telnet] + request.telnet_list
+        instances = []
+        for telnet in telnet_list:
+            connector_list = self.get_connector_list(telnet)
+            connectors = []
+            for raw_data in connector_list:
+                if raw_data[0][0] == '#':
+                    connector = {
+                        'cid': raw_data[0][1:],
+                        'status': raw_data[1],
+                        'session': raw_data[2]
+                    }
+
+                    connectors.append(connector)
+            instances.append(connectors)
+        return JsonResponse({'instances': instances})
 
     def list(self, request):
         """List SMPP Client Connectors. No parameters
@@ -139,6 +162,8 @@ class SMPPCCMViewSet(ViewSet):
         telnet.sendline('ok')
         telnet.sendline('persist\n')
         telnet.expect(r'.*' + STANDARD_PROMPT)
+        if settings.JASMIN_DOCKER:
+            sync_conf_instances(request.telnet_list)
         return JsonResponse({'cid': request.data['cid']})
 
     def destroy(self, request, cid):
@@ -151,7 +176,7 @@ class SMPPCCMViewSet(ViewSet):
         - 404: nonexistent group
         - 400: other error
         """
-        return self.simple_smppccm_action(request.telnet, 'r', cid)
+        return self.simple_smppccm_action(request.telnet, request.telnet_list, 'r', cid)
 
     @parser_classes((JSONParser,))
     def partial_update(self, request, cid):
@@ -203,8 +228,10 @@ class SMPPCCMViewSet(ViewSet):
             raise JasminSyntaxError(
                 detail=" ".join(telnet.match.group(1).split()))
         telnet.sendline('persist\n')
-        #Not sure why this needs to be repeated, just as with user
+        # Not sure why this needs to be repeated, just as with user
         telnet.expect(r'.*' + STANDARD_PROMPT)
+        if settings.JASMIN_DOCKER:
+            sync_conf_instances(request.telnet_list)
 
         return JsonResponse(
             {'connector': self.get_smppccm(telnet, cid, silent=False)})
@@ -221,7 +248,7 @@ class SMPPCCMViewSet(ViewSet):
         - 404: nonexistent connector
         - 400: other error - this includes failure to start because it is started.
         """
-        return self.simple_smppccm_action(request.telnet, '1', cid)
+        return self.simple_smppccm_action(request.telnet, request.telnet_list, '1', cid)
 
     @detail_route(methods=['put'])
     def stop(self, request, cid):
@@ -235,4 +262,4 @@ class SMPPCCMViewSet(ViewSet):
         - 404: nonexistent connector
         - 400: other error - this includes failure to stop because it is stopped.
         """
-        return self.simple_smppccm_action(request.telnet, '0', cid)
+        return self.simple_smppccm_action(request.telnet, request.telnet_list, '0', cid)

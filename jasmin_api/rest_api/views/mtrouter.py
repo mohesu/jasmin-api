@@ -7,7 +7,7 @@ from django.utils.datastructures import MultiValueDictKeyError
 from rest_framework.viewsets import ViewSet
 from rest_framework.decorators import list_route
 
-from rest_api.tools import set_ikeys, split_cols
+from rest_api.tools import set_ikeys, split_cols, sync_conf_instances
 from rest_api.exceptions import (JasminSyntaxError, JasminError,
                         UnknownError, MissingKeyError,
                         MutipleValuesRequiredKeyError, ObjectNotFoundError)
@@ -70,6 +70,8 @@ class MTRouterViewSet(ViewSet):
         telnet.expect([r'(.+)\n' + STANDARD_PROMPT])
         telnet.sendline('persist\n')
         telnet.expect(r'.*' + STANDARD_PROMPT)
+        if settings.JASMIN_DOCKER:
+            sync_conf_instances(request.telnet_list)
         return JsonResponse({'mtrouters': []})
 
     def create(self, request):
@@ -148,9 +150,11 @@ class MTRouterViewSet(ViewSet):
         set_ikeys(telnet, ikeys)
         telnet.sendline('persist\n')
         telnet.expect(r'.*' + STANDARD_PROMPT)
+        if settings.JASMIN_DOCKER:
+            sync_conf_instances(request.telnet_list)
         return JsonResponse({'mtrouter': self.get_router(telnet, order)})
 
-    def simple_mtrouter_action(self, telnet, action, order, return_mtroute=True):
+    def simple_mtrouter_action(self, telnet, telnet_list, action, order, return_mtroute=True):
         telnet.sendline('mtrouter -%s %s' % (action, order))
         matched_index = telnet.expect([
             r'.+Successfully(.+)' + STANDARD_PROMPT,
@@ -161,8 +165,12 @@ class MTRouterViewSet(ViewSet):
             telnet.sendline('persist\n')
             if return_mtroute:
                 telnet.expect(r'.*' + STANDARD_PROMPT)
-                return JsonResponse({'mtrouter': self.get_router(telnet, fid)})
+                if settings.JASMIN_DOCKER:
+                    sync_conf_instances(telnet_list)
+                return JsonResponse({'mtrouter': self.get_router(telnet, order)})
             else:
+                if settings.JASMIN_DOCKER:
+                    sync_conf_instances(telnet_list)
                 return JsonResponse({'order': order})
         elif matched_index == 1:
             raise UnknownError(detail='No router:' +  order)
@@ -179,4 +187,4 @@ class MTRouterViewSet(ViewSet):
         - 400: other error
         """
         return self.simple_mtrouter_action(
-            request.telnet, 'r', order, return_mtroute=False)
+            request.telnet, request.telnet_list, 'r', order, return_mtroute=False)

@@ -41,3 +41,16 @@ def split_cols(lines):
         fields = [s for s in raw_split if (s and raw_split[0][0] == '#')]
         parsed.append(fields)
     return parsed
+
+
+def sync_conf_instances(telnet_list):
+    "sync conf in instances of jasmin in docker"
+    for telnet in telnet_list:
+        try:
+            telnet.sendline('load\n')
+            telnet.expect(r'.*' + STANDARD_PROMPT)
+        except:
+            import traceback; traceback.print_exc();
+            pass
+
+    return

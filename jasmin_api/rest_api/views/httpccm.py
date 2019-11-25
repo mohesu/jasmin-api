@@ -4,7 +4,7 @@ from django.http import JsonResponse
 from rest_framework.viewsets import ViewSet
 from rest_framework.parsers import JSONParser
 from rest_framework.decorators import detail_route, parser_classes
-from rest_api.tools import set_ikeys, split_cols
+from rest_api.tools import set_ikeys, split_cols, sync_conf_instances
 from rest_api.exceptions import (
     JasminSyntaxError, JasminError, ActionFailed,
     ObjectNotFoundError, UnknownError, 
@@ -47,7 +47,7 @@ class HTTPCCMViewSet(ViewSet):
             return []
         return split_cols(result[2:-2])
 
-    def simple_httpccm_action(self, telnet, action, cid):
+    def simple_httpccm_action(self, telnet, telnet_list, action, cid):
         telnet.sendline('httpccm -%s %s' % (action, cid))
         matched_index = telnet.expect([
             r'.+Successfully(.+)' + STANDARD_PROMPT,
@@ -56,6 +56,8 @@ class HTTPCCMViewSet(ViewSet):
         ])
         if matched_index == 0:
             telnet.sendline('persist\n')
+            if settings.JASMIN_DOCKER:
+                sync_conf_instances(telnet_list)
             return JsonResponse({'name': cid})
         elif matched_index == 1:
             raise ObjectNotFoundError('Unknown HTTP Connector: %s' % cid)
@@ -148,6 +150,8 @@ class HTTPCCMViewSet(ViewSet):
                 detail=" ".join(telnet.match.group(1).split()))
         telnet.sendline('persist\n')
         telnet.expect(r'.*' + STANDARD_PROMPT)
+        if settings.JASMIN_DOCKER:
+            sync_conf_instances(request.telnet_list)
         return JsonResponse({'cid': request.data['cid']})
 
     def destroy(self, request, cid):
@@ -160,5 +164,5 @@ class HTTPCCMViewSet(ViewSet):
         - 404: nonexistent group
         - 400: other error
         """
-        return self.simple_httpccm_action(request.telnet, 'r', cid)
+        return self.simple_httpccm_action(request.telnet, request.telnet, 'r', cid)
 

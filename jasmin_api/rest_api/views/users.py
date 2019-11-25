@@ -5,13 +5,14 @@ from rest_framework.viewsets import ViewSet
 from rest_framework.parsers import JSONParser
 from rest_framework.decorators import detail_route, parser_classes
 
-from rest_api.tools import set_ikeys
-from rest_api.exceptions import (JasminSyntaxError, JasminError,
-                        UnknownError, MissingKeyError,
-                        ObjectNotFoundError)
+from rest_api.tools import set_ikeys, sync_conf_instances
+from rest_api.exceptions import (
+    JasminSyntaxError, JasminError,
+    UnknownError, MissingKeyError, ObjectNotFoundError)
 
 STANDARD_PROMPT = settings.STANDARD_PROMPT
 INTERACTIVE_PROMPT = settings.INTERACTIVE_PROMPT
+
 
 class UserViewSet(ViewSet):
     "ViewSet for managing *Jasmin* users (*not* Django auth users)"
@@ -38,7 +39,7 @@ class UserViewSet(ViewSet):
             if len(d) == 2:
                 user[d[0]] = d[1]
             elif len(d) == 4:
-                #Not DRY, could be more elegant
+                # Not DRY, could be more elegant
                 if not d[0] in user:
                     user[d[0]] = {}
                 if not d[1] in user[d[0]]:
@@ -46,7 +47,7 @@ class UserViewSet(ViewSet):
                 if not d[2] in user[d[0]][d[1]]:
                     user[d[0]][d[1]][d[2]] = {}
                 user[d[0]][d[1]][d[2]] = d[3]
-            #each line has two or four lines so above exhaustive
+            # each line has two or four lines so above exhaustive
         return user
 
     def retrieve(self, request, uid):
@@ -75,7 +76,7 @@ class UserViewSet(ViewSet):
             users.append(udata)
         return JsonResponse(
             {
-                #return users skipping None (== nonexistent user)
+                # return users skipping None (== nonexistent user)
                 'users': [u for u in users if u]
             }
         )
@@ -126,6 +127,8 @@ class UserViewSet(ViewSet):
         )
         telnet.sendline('persist\n')
         telnet.expect(r'.*' + STANDARD_PROMPT)
+        if settings.JASMIN_DOCKER:
+            sync_conf_instances(request.telnet_list)
         return JsonResponse({'user': self.get_user(telnet, uid)})
 
     @parser_classes((JSONParser,))
@@ -184,11 +187,13 @@ class UserViewSet(ViewSet):
             raise JasminSyntaxError(
                 detail=" ".join(telnet.match.group(1).split()))
         telnet.sendline('persist\n')
-        #Not sure why this needs to be repeated
+        # Not sure why this needs to be repeated
         telnet.expect(r'.*' + STANDARD_PROMPT)
+        if settings.JASMIN_DOCKER:
+            sync_conf_instances(request.telnet_list)
         return JsonResponse({'user': self.get_user(telnet, uid)})
 
-    def simple_user_action(self, telnet, action, uid, return_user=True):
+    def simple_user_action(self, telnet, telnet_list, action, uid, return_user=True):
         telnet.sendline('user -%s %s' % (action, uid))
         matched_index = telnet.expect([
             r'.+Successfully(.+)' + STANDARD_PROMPT,
@@ -197,13 +202,15 @@ class UserViewSet(ViewSet):
         ])
         if matched_index == 0:
             telnet.sendline('persist\n')
+            if settings.JASMIN_DOCKER:
+                sync_conf_instances(telnet_list)
             if return_user:
                 telnet.expect(r'.*' + STANDARD_PROMPT)
                 return JsonResponse({'user': self.get_user(telnet, uid)})
             else:
                 return JsonResponse({'uid': uid})
         elif matched_index == 1:
-            raise UnknownError(detail='No user:' +  uid)
+            raise UnknownError(detail='No user:' + uid)
         else:
             raise JasminError(telnet.match.group(1))
 
@@ -217,7 +224,7 @@ class UserViewSet(ViewSet):
         - 400: other error
         """
         return self.simple_user_action(
-            request.telnet, 'r', uid, return_user=False)
+            request.telnet, request.telnet_list, 'r', uid, return_user=False)
 
     @detail_route(methods=['put'])
     def enable(self, request, uid):
@@ -229,7 +236,7 @@ class UserViewSet(ViewSet):
         - 404: nonexistent user
         - 400: other error
         """
-        return self.simple_user_action(request.telnet, 'e', uid)
+        return self.simple_user_action(request.telnet, request.telnet_list, 'e', uid)
 
     @detail_route(methods=['put'])
     def disable(self, request, uid):
@@ -243,7 +250,7 @@ class UserViewSet(ViewSet):
         - 404: nonexistent user
         - 400: other error
         """
-        return self.simple_user_action(request.telnet, 'd', uid)
+        return self.simple_user_action(request.telnet, request.telnet_list, 'd', uid)
 
     @detail_route(methods=['put'])
     def smpp_unbind(self, request, uid):
@@ -257,7 +264,7 @@ class UserViewSet(ViewSet):
         - 404: nonexistent user
         - 400: other error
         """
-        return self.simple_user_action(request.telnet, '-smpp-unbind', uid)
+        return self.simple_user_action(request.telnet, request.telnet_list, '-smpp-unbind', uid)
 
     @detail_route(methods=['put'])
     def smpp_ban(self, request, uid):
@@ -271,4 +278,4 @@ class UserViewSet(ViewSet):
         - 404: nonexistent user
         - 400: other error
         """
-        return self.simple_user_action(request.telnet, '-smpp-ban', uid)
+        return self.simple_user_action(request.telnet, request.telnet_list, '-smpp-ban', uid)
