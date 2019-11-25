@@ -149,7 +149,7 @@ class SMPPCCMViewSet(ViewSet):
         for k, v in updates.items():
             if not ((type(updates) is dict) and (len(updates) >= 1)):
                 raise JasminSyntaxError('updates should be a a key value array')
-            telnet.sendline("%s %s" % (k, v))
+            telnet.sendline("%s %s\n" % (k, v))
             matched_index = telnet.expect([
                 r'.*(Unknown SMPPClientConfig key:.*)' + INTERACTIVE_PROMPT,
                 r'.*(Error:.*)' + STANDARD_PROMPT,
@@ -159,7 +159,7 @@ class SMPPCCMViewSet(ViewSet):
             if matched_index != 2:
                 raise JasminSyntaxError(
                     detail=" ".join(telnet.match.group(1).split()))
-        telnet.sendline('ok')
+        telnet.sendline('ok\n')
         telnet.sendline('persist\n')
         telnet.expect(r'.*' + STANDARD_PROMPT)
         if settings.JASMIN_DOCKER:
@@ -208,7 +208,7 @@ class SMPPCCMViewSet(ViewSet):
         for k, v in updates.items():
             if not ((type(updates) is dict) and (len(updates) >= 1)):
                 raise JasminSyntaxError('updates should be a a key value array')
-            telnet.sendline("%s %s" % (k, v))
+            telnet.sendline("%s %s\n" % (k, v))
             matched_index = telnet.expect([
                 r'.*(Unknown SMPPClientConfig key:.*)' + INTERACTIVE_PROMPT,
                 r'.*(Error:.*)' + STANDARD_PROMPT,
@@ -218,7 +218,7 @@ class SMPPCCMViewSet(ViewSet):
             if matched_index != 2:
                 raise JasminSyntaxError(
                     detail=" ".join(telnet.match.group(1).split()))
-        telnet.sendline('ok')
+        telnet.sendline('ok\n')
         ok_index = telnet.expect([
             r'.*(Error:.*)' + STANDARD_PROMPT,
             r'(.*)' + INTERACTIVE_PROMPT,
