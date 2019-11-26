@@ -7,7 +7,7 @@ from rest_framework.decorators import list_route, detail_route, parser_classes
 from rest_api.tools import split_cols, sync_conf_instances
 from rest_api.exceptions import (
     JasminSyntaxError, JasminError, ActionFailed,
-    ObjectNotFoundError, UnknownError,
+    ObjectNotFoundError, UnknownError, MissingKeyError
 )
 
 STANDARD_PROMPT = settings.STANDARD_PROMPT
@@ -145,10 +145,11 @@ class SMPPCCMViewSet(ViewSet):
         telnet = request.telnet
 
         telnet.sendline('smppccm -a')
+        telnet.expect(r'Adding a new connector(.+)\n' + INTERACTIVE_PROMPT)
         updates = request.data
+        if not 'cid' in request.data:
+            raise MissingKeyError('Missing cid (connector identifier)')
         for k, v in updates.items():
-            if not ((type(updates) is dict) and (len(updates) >= 1)):
-                raise JasminSyntaxError('updates should be a a key value array')
             telnet.sendline("%s %s\n" % (k, v))
             matched_index = telnet.expect([
                 r'.*(Unknown SMPPClientConfig key:.*)' + INTERACTIVE_PROMPT,
@@ -159,9 +160,10 @@ class SMPPCCMViewSet(ViewSet):
             if matched_index != 2:
                 raise JasminSyntaxError(
                     detail=" ".join(telnet.match.group(1).split()))
-        telnet.sendline('ok\n')
-        telnet.sendline('persist\n')
+        telnet.expect(r'.*' + INTERACTIVE_PROMPT)
+        telnet.sendline('ok')
         telnet.expect(r'.*' + STANDARD_PROMPT)
+        telnet.sendline('persist\n')
         if settings.JASMIN_DOCKER:
             sync_conf_instances(request.telnet_list)
         return JsonResponse({'cid': request.data['cid']})

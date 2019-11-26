@@ -5,7 +5,7 @@ from rest_framework.viewsets import ViewSet
 from rest_framework.decorators import detail_route
 
 from rest_api.exceptions import MissingKeyError, ActionFailed, ObjectNotFoundError
-from rest_api.tools import sync_conf_instances
+from rest_api.tools import set_ikeys, sync_conf_instances
 
 STANDARD_PROMPT = settings.STANDARD_PROMPT
 INTERACTIVE_PROMPT = settings.INTERACTIVE_PROMPT
@@ -54,23 +54,14 @@ class GroupViewSet(ViewSet):
         telnet.expect(r'Adding a new Group(.+)\n' + INTERACTIVE_PROMPT)
         if not 'gid' in request.data:
             raise MissingKeyError('Missing gid (group identifier)')
-        telnet.sendline('gid ' + request.data['gid'] + '\n')
-        telnet.expect(INTERACTIVE_PROMPT)
-        telnet.sendline('ok\n')
 
-        matched_index = telnet.expect([
-            r'.+Successfully added(.+)\[(.+)\][\n\r]+' + STANDARD_PROMPT,
-            r'.+Error: (.+)[\n\r]+' + INTERACTIVE_PROMPT,
-            r'.+(.*)(' + INTERACTIVE_PROMPT + '|' + STANDARD_PROMPT + ')',
-        ])
-        if matched_index == 0:
-            gid = telnet.match.group(2).strip()
-            telnet.sendline('persist\n')
-            if settings.JASMIN_DOCKER:
-                sync_conf_instances(request.telnet_list)
-            return JsonResponse({'name': gid})
-        else:
-            raise ActionFailed(telnet.match.group(1))
+        set_ikeys(telnet, {"gid": request.data["gid"]})
+
+        telnet.sendline('persist')
+        telnet.expect(r'.*' + STANDARD_PROMPT)
+        if settings.JASMIN_DOCKER:
+            sync_conf_instances(request.telnet_list)
+        return JsonResponse({'name': request.data["gid"]})
 
     def simple_group_action(self, telnet, telnet_list, action, gid):
         telnet.sendline('group -%s %s' % (action, gid))
