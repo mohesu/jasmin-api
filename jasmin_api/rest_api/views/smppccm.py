@@ -4,7 +4,7 @@ from django.http import JsonResponse
 from rest_framework.viewsets import ViewSet
 from rest_framework.parsers import JSONParser
 from rest_framework.decorators import list_route, detail_route, parser_classes
-from rest_api.tools import split_cols, sync_conf_instances
+from rest_api.tools import set_ikeys, split_cols, sync_conf_instances
 from rest_api.exceptions import (
     JasminSyntaxError, JasminError, ActionFailed,
     ObjectNotFoundError, UnknownError, MissingKeyError
@@ -149,21 +149,11 @@ class SMPPCCMViewSet(ViewSet):
         updates = request.data
         if not 'cid' in request.data:
             raise MissingKeyError('Missing cid (connector identifier)')
-        for k, v in updates.items():
-            telnet.sendline("%s %s\n" % (k, v))
-            matched_index = telnet.expect([
-                r'.*(Unknown SMPPClientConfig key:.*)' + INTERACTIVE_PROMPT,
-                r'.*(Error:.*)' + STANDARD_PROMPT,
-                r'.*' + INTERACTIVE_PROMPT,
-                r'.+(.*)(' + INTERACTIVE_PROMPT + '|' + STANDARD_PROMPT + ')',
-            ])
-            if matched_index != 2:
-                raise JasminSyntaxError(
-                    detail=" ".join(telnet.match.group(1).split()))
-        telnet.expect(r'.*' + INTERACTIVE_PROMPT)
-        telnet.sendline('ok')
-        telnet.expect(r'.*' + STANDARD_PROMPT)
+
+        set_ikeys(telnet, {"cid": request.data["cid"]})
+
         telnet.sendline('persist\n')
+        telnet.expect(r'.*' + STANDARD_PROMPT)
         if settings.JASMIN_DOCKER:
             sync_conf_instances(request.telnet_list)
         return JsonResponse({'cid': request.data['cid']})

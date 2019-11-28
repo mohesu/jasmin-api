@@ -15,13 +15,17 @@ def set_ikeys(telnet, keys2vals):
         matched_index = telnet.expect([
             r'.*(Unknown .*)' + INTERACTIVE_PROMPT,
             r'(.*) can not be modified.*' + INTERACTIVE_PROMPT,
-            r'(.*)' + INTERACTIVE_PROMPT
+            r'(.*)' + INTERACTIVE_PROMPT,
+            r'.*(Unknown SMPPClientConfig key:.*)' + INTERACTIVE_PROMPT,
+            r'.*(Error:.*)' + STANDARD_PROMPT,
         ])
         result = telnet.match.group(1).strip()
         if matched_index == 0:
             raise UnknownError(result)
         if matched_index == 1:
             raise CanNotModifyError(result)
+        if matched_index == 3 or matched_index == 4:
+            raise JasminSyntaxError(detail=" ".join(telnet.match.group(1).split()))
     telnet.sendline('ok')
     ok_index = telnet.expect([
         r'ok(.* syntax is invalid).*' + INTERACTIVE_PROMPT,
