@@ -59,7 +59,7 @@ class TelnetConnectionMiddleware(object):
         return None
 
     def set_telnet_list(self):
-        api_response = k8s_api_obj.list_namespaced_pod(settings.JASMIN_K8S_NAMESPACE, field_selector="app",label_selector="jasmin")
+        api_response = k8s_api_obj.list_namespaced_pod(settings.JASMIN_K8S_NAMESPACE, label_selector="jasmin")
         msg = []
         for i in api_response.items:
             msg.append(i.metadata.name)
