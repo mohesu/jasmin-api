@@ -5,6 +5,18 @@ from django.conf import settings
 
 from .exceptions import TelnetUnexpectedResponse, TelnetConnectionTimeout, TelnetLoginFailed
 
+if settings.JASMIN_K8S:
+    try:
+      if st.params['ctlloc'] == 'in':
+        config.load_incluster_config()
+      else:
+        config.load_kube_config()
+        k8s_api_obj = client.CoreV1Api()
+        print "Main: K8S API initialized."
+    except config.ConfigException as e:
+      print "Main:ERROR: Cannot initialize K8S environment, terminating:", e
+      sys.exit(-1)
+
 class TelnetConnectionMiddleware(object):
     def process_request(self, request):
         """Add a telnet connection to all request paths that start with /api/
@@ -47,7 +59,6 @@ class TelnetConnectionMiddleware(object):
         return None
 
     def set_telnet_list(self):
-        k8s_api_obj = client.CoreV1Api()
         api_response = k8s_api_obj.list_namespaced_pod(settings.JASMIN_K8S_NAMESPACE, field_selector="app",label_selector="jasmin")
         msg = []
         for i in api_response.items:
