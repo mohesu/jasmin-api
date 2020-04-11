@@ -56,7 +56,7 @@ class HTTPCCMViewSet(ViewSet):
         ])
         if matched_index == 0:
             telnet.sendline('persist\n')
-            if settings.JASMIN_DOCKER:
+            if settings.JASMIN_DOCKER or settings.JASMIN_K8S:
                 sync_conf_instances(telnet_list)
             return JsonResponse({'name': cid})
         elif matched_index == 1:
@@ -150,7 +150,7 @@ class HTTPCCMViewSet(ViewSet):
                 detail=" ".join(telnet.match.group(1).split()))
         telnet.sendline('persist\n')
         telnet.expect(r'.*' + STANDARD_PROMPT)
-        if settings.JASMIN_DOCKER:
+        if settings.JASMIN_DOCKER or settings.JASMIN_K8S:
             sync_conf_instances(request.telnet_list)
         return JsonResponse({'cid': request.data['cid']})
 

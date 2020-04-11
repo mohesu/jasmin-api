@@ -70,7 +70,7 @@ class MTRouterViewSet(ViewSet):
         telnet.expect([r'(.+)\n' + STANDARD_PROMPT])
         telnet.sendline('persist\n')
         telnet.expect(r'.*' + STANDARD_PROMPT)
-        if settings.JASMIN_DOCKER:
+        if settings.JASMIN_DOCKER or settings.JASMIN_K8S:
             sync_conf_instances(request.telnet_list)
         return JsonResponse({'mtrouters': []})
 
@@ -150,7 +150,7 @@ class MTRouterViewSet(ViewSet):
         set_ikeys(telnet, ikeys)
         telnet.sendline('persist\n')
         telnet.expect(r'.*' + STANDARD_PROMPT)
-        if settings.JASMIN_DOCKER:
+        if settings.JASMIN_DOCKER or settings.JASMIN_K8S:
             sync_conf_instances(request.telnet_list)
         return JsonResponse({'mtrouter': self.get_router(telnet, order)})
 
@@ -165,11 +165,11 @@ class MTRouterViewSet(ViewSet):
             telnet.sendline('persist\n')
             if return_mtroute:
                 telnet.expect(r'.*' + STANDARD_PROMPT)
-                if settings.JASMIN_DOCKER:
+                if settings.JASMIN_DOCKER or settings.JASMIN_K8S:
                     sync_conf_instances(telnet_list)
                 return JsonResponse({'mtrouter': self.get_router(telnet, order)})
             else:
-                if settings.JASMIN_DOCKER:
+                if settings.JASMIN_DOCKER or settings.JASMIN_K8S:
                     sync_conf_instances(telnet_list)
                 return JsonResponse({'order': order})
         elif matched_index == 1:

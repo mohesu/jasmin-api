@@ -1,9 +1,12 @@
 import pexpect
-
+from kubernetes import client, config
+from kubernetes.client.rest import ApiException
 from django.conf import settings
 
 from .exceptions import TelnetUnexpectedResponse, TelnetConnectionTimeout, TelnetLoginFailed
 
+if settings.JASMIN_K8S:
+    config.load_kube_config()
 
 class TelnetConnectionMiddleware(object):
     def process_request(self, request):
@@ -14,52 +17,63 @@ class TelnetConnectionMiddleware(object):
         """
         if not request.path.startswith('/api/'):
             return None
+
+        if settings.JASMIN_DOCKER:
+            request.telnet_list = []
+            for port in settings.JASMIN_DOCKER_PORTS:
+                telnet = self.telnet_request(settings.TELNET_HOST, port, settings.TELNET_USERNAME, settings.TELNET_PW)
+                try:
+                    telnet.expect_exact(settings.STANDARD_PROMPT)
+                except pexpect.EOF:
+                    raise TelnetLoginFailed
+                else:
+                    request.telnet = telnet
+                    request.telnet_list.append(telnet)
+        elif settings.JASMIN_K8S:
+            for host in self.set_telnet_list():
+                telnet = self.telnet_request(host, settings.TELNET_PORT, settings.TELNET_USERNAME, settings.TELNET_PW)
+                try:
+                    telnet.expect_exact(settings.STANDARD_PROMPT)
+                except pexpect.EOF:
+                    raise TelnetLoginFailed
+                else:
+                    request.telnet = telnet
+                    request.telnet_list.append(telnet)
+        else:
+            telnet = self.telnet_request(settings.TELNET_HOST, settings.TELNET_PORT, settings.TELNET_USERNAME, settings.TELNET_PW)
+            try:
+                telnet.expect_exact(settings.STANDARD_PROMPT)
+            except pexpect.EOF:
+                raise TelnetLoginFailed
+            else:
+                request.telnet = telnet
+        return None
+
+    def set_telnet_list(self):
+        k8s_api_obj = client.CoreV1Api()
+        api_response = k8s_api_obj.list_namespaced_pod(settings.JASMIN_K8S_NAMESPACE, field_selector="app",label_selector="jasmin")
+        msg = []
+        for i in api_response.items:
+            msg.append(i.metadata.name)
+        return msg
+
+    def telnet_request(self, host, port, user, pw):
         try:
             telnet = pexpect.spawn(
                 "telnet %s %s" %
-                (settings.TELNET_HOST, settings.TELNET_PORT),
+                (host, port),
                 timeout=settings.TELNET_TIMEOUT,
             )
             telnet.expect_exact('Username: ')
-            telnet.sendline(settings.TELNET_USERNAME)
+            telnet.sendline(user)
             telnet.expect_exact('Password: ')
-            telnet.sendline(settings.TELNET_PW)
+            telnet.sendline(pw)
         except pexpect.EOF:
             raise TelnetUnexpectedResponse
         except pexpect.TIMEOUT:
             raise TelnetConnectionTimeout
-
-        try:
-            telnet.expect_exact(settings.STANDARD_PROMPT)
-        except pexpect.EOF:
-            raise TelnetLoginFailed
-        else:
-            request.telnet = telnet
-        if settings.JASMIN_DOCKER:
-            request.telnet_list = []
-            for port in settings.JASMIN_DOCKER_PORTS:
-                try:
-                    telnet_item = pexpect.spawn(
-                        "telnet %s %s" %
-                        (settings.TELNET_HOST, port),
-                        timeout=settings.TELNET_TIMEOUT,
-                    )
-                    telnet_item.expect_exact('Username: ')
-                    telnet_item.sendline(settings.TELNET_USERNAME)
-                    telnet_item.expect_exact('Password: ')
-                    telnet_item.sendline(settings.TELNET_PW)
-                except pexpect.EOF:
-                    raise TelnetUnexpectedResponse
-                except pexpect.TIMEOUT:
-                    raise TelnetConnectionTimeout
-
-                try:
-                    telnet_item.expect_exact(settings.STANDARD_PROMPT)
-                except pexpect.EOF:
-                    raise TelnetLoginFailed
-                else:
-                    request.telnet_list.append(telnet_item)
-        return None
+        
+        return telnet
 
     def process_response(self, request, response):
         "Make sure telnet connection is closed when unleashing response back to client"
@@ -68,4 +82,12 @@ class TelnetConnectionMiddleware(object):
                 request.telnet.sendline('quit')
             except pexpect.ExceptionPexpect:
                 request.telnet.kill(9)
+
+        if hasattr(request, 'telnet_list'):
+            for telnet in request.telnet_list:
+                try:
+                    request.telnet.sendline('quit')
+                except pexpect.ExceptionPexpect:
+                    request.telnet.kill(9)
+                    
         return response

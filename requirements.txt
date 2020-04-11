@@ -5,3 +5,4 @@ Markdown==2
 CherryPy>=4.0.0
 pexpect>=4.0
 python-dotenv==0.10.3
+kubernetes==11.0.0

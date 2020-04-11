@@ -59,7 +59,7 @@ class GroupViewSet(ViewSet):
 
         telnet.sendline('persist')
         telnet.expect(r'.*' + STANDARD_PROMPT)
-        if settings.JASMIN_DOCKER:
+        if settings.JASMIN_DOCKER or settings.JASMIN_K8S:
             sync_conf_instances(request.telnet_list)
         return JsonResponse({'name': request.data["gid"]})
 
@@ -72,7 +72,7 @@ class GroupViewSet(ViewSet):
         ])
         if matched_index == 0:
             telnet.sendline('persist\n')
-            if settings.JASMIN_DOCKER:
+            if settings.JASMIN_DOCKER or settings.JASMIN_K8S:
                 sync_conf_instances(telnet_list)
             return JsonResponse({'name': gid})
         elif matched_index == 1:

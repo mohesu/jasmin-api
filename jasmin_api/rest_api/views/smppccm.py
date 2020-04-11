@@ -56,7 +56,7 @@ class SMPPCCMViewSet(ViewSet):
         ])
         if matched_index == 0:
             telnet.sendline('persist\n')
-            if settings.JASMIN_DOCKER:
+            if settings.JASMIN_DOCKER or settings.JASMIN_K8S:
                 sync_conf_instances(telnet_list)
             return JsonResponse({'name': cid})
         elif matched_index == 1:
@@ -154,7 +154,7 @@ class SMPPCCMViewSet(ViewSet):
 
         telnet.sendline('persist\n')
         telnet.expect(r'.*' + STANDARD_PROMPT)
-        if settings.JASMIN_DOCKER:
+        if settings.JASMIN_DOCKER or settings.JASMIN_K8S:
             sync_conf_instances(request.telnet_list)
         return JsonResponse({'cid': request.data['cid']})
 
@@ -222,7 +222,7 @@ class SMPPCCMViewSet(ViewSet):
         telnet.sendline('persist\n')
         # Not sure why this needs to be repeated, just as with user
         telnet.expect(r'.*' + STANDARD_PROMPT)
-        if settings.JASMIN_DOCKER:
+        if settings.JASMIN_DOCKER or settings.JASMIN_K8S:
             sync_conf_instances(request.telnet_list)
 
         return JsonResponse(

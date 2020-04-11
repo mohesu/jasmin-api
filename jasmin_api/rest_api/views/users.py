@@ -127,7 +127,7 @@ class UserViewSet(ViewSet):
         )
         telnet.sendline('persist\n')
         telnet.expect(r'.*' + STANDARD_PROMPT)
-        if settings.JASMIN_DOCKER:
+        if settings.JASMIN_DOCKER or settings.JASMIN_K8S:
             sync_conf_instances(request.telnet_list)
         return JsonResponse({'user': self.get_user(telnet, uid)})
 
@@ -189,7 +189,7 @@ class UserViewSet(ViewSet):
         telnet.sendline('persist\n')
         # Not sure why this needs to be repeated
         telnet.expect(r'.*' + STANDARD_PROMPT)
-        if settings.JASMIN_DOCKER:
+        if settings.JASMIN_DOCKER or settings.JASMIN_K8S:
             sync_conf_instances(request.telnet_list)
         return JsonResponse({'user': self.get_user(telnet, uid)})
 
@@ -202,7 +202,7 @@ class UserViewSet(ViewSet):
         ])
         if matched_index == 0:
             telnet.sendline('persist\n')
-            if settings.JASMIN_DOCKER:
+            if settings.JASMIN_DOCKER or settings.JASMIN_K8S:
                 sync_conf_instances(telnet_list)
             if return_user:
                 telnet.expect(r'.*' + STANDARD_PROMPT)

@@ -121,7 +121,7 @@ class FiltersViewSet(ViewSet):
         set_ikeys(telnet, ikeys)
         telnet.sendline('persist\n')
         telnet.expect(r'.*' + STANDARD_PROMPT)
-        if settings.JASMIN_DOCKER:
+        if settings.JASMIN_DOCKER or settings.JASMIN_K8S:
             sync_conf_instances(request.telnet_list)
         return JsonResponse({'filter': self.get_filter(telnet, fid)})
 
@@ -136,11 +136,11 @@ class FiltersViewSet(ViewSet):
             telnet.sendline('persist\n')
             if return_filter:
                 telnet.expect(r'.*' + STANDARD_PROMPT)
-                if settings.JASMIN_DOCKER:
+                if settings.JASMIN_DOCKER or settings.JASMIN_K8S:
                     sync_conf_instances(telnet_list)
                 return JsonResponse({'filter': self.get_filter(telnet, fid)})
             else:
-                if settings.JASMIN_DOCKER:
+                if settings.JASMIN_DOCKER or settings.JASMIN_K8S:
                     sync_conf_instances(telnet_list)
                 return JsonResponse({'fid': fid})
         elif matched_index == 1:
