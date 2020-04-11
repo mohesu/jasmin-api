@@ -44,7 +44,7 @@ class TelnetConnectionMiddleware(object):
             all_pods = self.set_telnet_list()
             if settings.DEBUG:
                 print "Finding pods..."
-                print "We find {} pods in k8s".format(all_pods.__length__)
+                print "We find {} pods in k8s".format(len(all_pods))
             for host in all_pods:
                 telnet = self.telnet_request(host, settings.TELNET_PORT, settings.TELNET_USERNAME, settings.TELNET_PW)
                 try:
@@ -56,7 +56,7 @@ class TelnetConnectionMiddleware(object):
                         request.telnet = telnet
                     request.telnet_list.append(telnet)
             if settings.DEBUG:
-                print "We find {} pods if telnet connection up".format(request.telnet_list.__length__)
+                print "We find {} pods if telnet connection up".format(len(request.telnet_list))
         else:
             telnet = self.telnet_request(settings.TELNET_HOST, settings.TELNET_PORT, settings.TELNET_USERNAME, settings.TELNET_PW)
             try:
