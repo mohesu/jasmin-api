@@ -20,7 +20,7 @@ class TelnetConnectionMiddleware(object):
         if settings.DEBUG:
             print "settings.JASMIN_DOCKER: {}\n settings.JASMIN_K8S: {}".format(settings.JASMIN_DOCKER, settings.JASMIN_K8S)
 
-        if settings.JASMIN_DOCKER:
+        if settings.JASMIN_DOCKER == True:
             request.telnet_list = []
             for port in settings.JASMIN_DOCKER_PORTS:
                 telnet = self.telnet_request(settings.TELNET_HOST, port, settings.TELNET_USERNAME, settings.TELNET_PW)
@@ -37,7 +37,7 @@ class TelnetConnectionMiddleware(object):
                 raise TelnetLoginFailed
             return None
 
-        if settings.JASMIN_K8S:
+        if settings.JASMIN_K8S == True:
             request.telnet_list = []
             all_pods = self.set_telnet_list()
             print "Finding pods..."
