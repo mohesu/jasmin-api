@@ -15,8 +15,6 @@ class TelnetConnectionMiddleware(object):
         if not request.path.startswith('/api/'):
             return None
 
-        request.telnet = None
-
         if settings.DEBUG:
             print "settings.JASMIN_DOCKER: {}\n settings.JASMIN_K8S: {}".format(settings.JASMIN_DOCKER, settings.JASMIN_K8S)
 
@@ -37,9 +35,8 @@ class TelnetConnectionMiddleware(object):
         if settings.JASMIN_K8S:
             request.telnet_list = []
             all_pods = self.set_telnet_list()
-            if settings.DEBUG:
-                print "Finding pods..."
-                print "We find {} pods in k8s".format(len(all_pods))
+            print "Finding pods..."
+            print "We find {} pods in k8s".format(len(all_pods))
             for host in all_pods:
                 telnet = self.telnet_request(host, settings.TELNET_PORT, settings.TELNET_USERNAME, settings.TELNET_PW)
                 try:
@@ -50,8 +47,7 @@ class TelnetConnectionMiddleware(object):
                     if request.telnet == None:
                         request.telnet = telnet
                     request.telnet_list.append(telnet)
-            if settings.DEBUG:
-                print "We find {} pods if telnet connection up".format(len(request.telnet_list))
+            print "We find {} pods if telnet connection up".format(len(request.telnet_list))
             return None
 
         telnet = self.telnet_request(settings.TELNET_HOST, settings.TELNET_PORT, settings.TELNET_USERNAME, settings.TELNET_PW)
