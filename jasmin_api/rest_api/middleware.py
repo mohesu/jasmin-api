@@ -26,7 +26,8 @@ class TelnetConnectionMiddleware(object):
             return None
 
         request.telnet = None
-
+        if settings.DEBUG:
+            print "settings.JASMIN_DOCKER: {}\n settings.JASMIN_K8S: {}".format(settings.JASMIN_DOCKER, settings.JASMIN_K8S)
         if settings.JASMIN_DOCKER:
             request.telnet_list = []
             for port in settings.JASMIN_DOCKER_PORTS:
@@ -39,7 +40,9 @@ class TelnetConnectionMiddleware(object):
                     if request.telnet == None:
                         request.telnet = telnet
                     request.telnet_list.append(telnet)
-        elif settings.JASMIN_K8S:
+                return None
+
+        if settings.JASMIN_K8S:
             request.telnet_list = []
             all_pods = self.set_telnet_list()
             if settings.DEBUG:
@@ -57,14 +60,15 @@ class TelnetConnectionMiddleware(object):
                     request.telnet_list.append(telnet)
             if settings.DEBUG:
                 print "We find {} pods if telnet connection up".format(len(request.telnet_list))
+            return None
+
+        telnet = self.telnet_request(settings.TELNET_HOST, settings.TELNET_PORT, settings.TELNET_USERNAME, settings.TELNET_PW)
+        try:
+            telnet.expect_exact(settings.STANDARD_PROMPT)
+        except pexpect.EOF:
+            raise TelnetLoginFailed
         else:
-            telnet = self.telnet_request(settings.TELNET_HOST, settings.TELNET_PORT, settings.TELNET_USERNAME, settings.TELNET_PW)
-            try:
-                telnet.expect_exact(settings.STANDARD_PROMPT)
-            except pexpect.EOF:
-                raise TelnetLoginFailed
-            else:
-                request.telnet = telnet
+            request.telnet = telnet
 
         if request.telnet == None:
             raise TelnetLoginFailed
