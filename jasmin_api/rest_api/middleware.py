@@ -37,9 +37,12 @@ class TelnetConnectionMiddleware(object):
                     request.telnet = telnet
                     request.telnet_list.append(telnet)
         elif settings.JASMIN_K8S:
+            request.telnet_list = []
+            all_pods = self.set_telnet_list()
             if settings.DEBUG:
                 print "Finding pods..."
-            for host in self.set_telnet_list():
+                print "We find {} pods in k8s".format(all_pods.__length__)
+            for host in all_pods:
                 telnet = self.telnet_request(host, settings.TELNET_PORT, settings.TELNET_USERNAME, settings.TELNET_PW)
                 try:
                     telnet.expect_exact(settings.STANDARD_PROMPT)
