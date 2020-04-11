@@ -79,6 +79,8 @@ class TelnetConnectionMiddleware(object):
 
     def set_telnet_list(self):
         api_response = k8s_api_obj.list_namespaced_pod(settings.JASMIN_K8S_NAMESPACE, label_selector="jasmin")
+        if settings.DEBUG:
+            print "Response K8S: {}".format(len(api_response))
         msg = []
         for i in api_response.items:
             msg.append(i.metadata.name)
