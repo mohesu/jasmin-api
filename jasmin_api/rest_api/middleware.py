@@ -5,9 +5,6 @@ from django.conf import settings
 
 from .exceptions import TelnetUnexpectedResponse, TelnetConnectionTimeout, TelnetLoginFailed
 
-if settings.JASMIN_K8S:
-    config.load_kube_config()
-
 class TelnetConnectionMiddleware(object):
     def process_request(self, request):
         """Add a telnet connection to all request paths that start with /api/
