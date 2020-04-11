@@ -80,10 +80,14 @@ class TelnetConnectionMiddleware(object):
     def set_telnet_list(self):
         api_response = k8s_api_obj.list_namespaced_pod(settings.JASMIN_K8S_NAMESPACE, label_selector="jasmin")
         if settings.DEBUG:
-            print "Response K8S: {}".format(len(api_response))
+            print "Response K8S: {}".format(len(api_response.items))
         msg = []
         for i in api_response.items:
             msg.append(i.metadata.name)
+
+        if len(msg) == 0:
+            raise TelnetLoginFailed
+
         return msg
 
     def telnet_request(self, host, port, user, pw):
@@ -101,7 +105,7 @@ class TelnetConnectionMiddleware(object):
             raise TelnetUnexpectedResponse
         except pexpect.TIMEOUT:
             raise TelnetConnectionTimeout
-        
+
         return telnet
 
     def process_response(self, request, response):
@@ -118,5 +122,5 @@ class TelnetConnectionMiddleware(object):
                     request.telnet.sendline('quit')
                 except pexpect.ExceptionPexpect:
                     request.telnet.kill(9)
-                    
+
         return response
