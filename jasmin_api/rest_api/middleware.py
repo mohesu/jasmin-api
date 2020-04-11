@@ -59,7 +59,7 @@ class TelnetConnectionMiddleware(object):
             else:
                 request.telnet = telnet
 
-        if request.telnet === None:
+        if request.telnet == None:
             raise TelnetLoginFailed
 
         return None
