@@ -106,10 +106,11 @@ class TelnetConnectionMiddleware(object):
     def process_response(self, request, response):
         "Make sure telnet connection is closed when unleashing response back to client"
         if hasattr(request, 'telnet'):
-            try:
-                request.telnet.sendline('quit')
-            except pexpect.ExceptionPexpect:
-                request.telnet.kill(9)
+            if request.telnet != None:
+                try:
+                    request.telnet.sendline('quit')
+                except pexpect.ExceptionPexpect:
+                    request.telnet.kill(9)
 
         if hasattr(request, 'telnet_list'):
             for telnet in request.telnet_list:
