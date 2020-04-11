@@ -70,7 +70,7 @@ class TelnetConnectionMiddleware(object):
         msg = []
         for i in api_response.items:
             if hasattr(i, "status"):
-                msg.append(i.status.podIP)
+                msg.append(i.status.pod_ip)
 
         if len(msg) == 0:
             raise TelnetLoginFailed
