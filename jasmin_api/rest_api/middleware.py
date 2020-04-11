@@ -15,6 +15,8 @@ class TelnetConnectionMiddleware(object):
         if not request.path.startswith('/api/'):
             return None
 
+        request.telnet = None
+
         if settings.DEBUG:
             print "settings.JASMIN_DOCKER: {}\n settings.JASMIN_K8S: {}".format(settings.JASMIN_DOCKER, settings.JASMIN_K8S)
 
@@ -29,7 +31,10 @@ class TelnetConnectionMiddleware(object):
                 else:
                     if request.telnet == None:
                         request.telnet = telnet
-                    request.telnet_list.append(telnet)
+                    else:
+                        request.telnet_list.append(telnet)
+                if request.telnet == None
+                    raise TelnetLoginFailed
                 return None
 
         if settings.JASMIN_K8S:
@@ -46,7 +51,10 @@ class TelnetConnectionMiddleware(object):
                 else:
                     if request.telnet == None:
                         request.telnet = telnet
-                    request.telnet_list.append(telnet)
+                    else:
+                        request.telnet_list.append(telnet)
+                if request.telnet == None
+                    raise TelnetLoginFailed
             print "We find {} pods if telnet connection up".format(len(request.telnet_list))
             return None
 
