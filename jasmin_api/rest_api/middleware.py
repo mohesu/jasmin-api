@@ -4,7 +4,6 @@ from django.conf import settings
 from .exceptions import TelnetUnexpectedResponse, TelnetConnectionTimeout, TelnetLoginFailed
 
 class TelnetConnectionMiddleware(object):
-    global k8s_api_obj
 
     def process_request(self, request):
         """Add a telnet connection to all request paths that start with /api/
@@ -69,7 +68,7 @@ class TelnetConnectionMiddleware(object):
         return None
 
     def set_telnet_list(self):
-        api_response = k8s_api_obj.list_namespaced_pod(settings.JASMIN_K8S_NAMESPACE, label_selector="jasmin")
+        api_response = settings.K8S_CLIENT.list_namespaced_pod(settings.JASMIN_K8S_NAMESPACE, label_selector="jasmin")
         if settings.DEBUG:
             print "Response K8S: {}".format(len(api_response.items))
         msg = []

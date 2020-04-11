@@ -1,4 +1,6 @@
 import os
+from kubernetes import client, config
+from kubernetes.client.rest import ApiException
 
 SETTINGS_DIR = os.path.dirname(os.path.abspath(__file__))
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -19,6 +21,15 @@ JASMIN_K8S_NAMESPACE = os.getenv("JASMIN_K8S_NAMESPACE") #namespace where look f
 JASMIN_DOCKER = bool(os.getenv("JASMIN_DOCKER")) or False  # manage multiple instances of jasmin in docker
 JASMIN_DOCKER_PORTS = eval(os.getenv("JASMIN_DOCKER_PORTS")) or []
 DEBUG = bool(os.getenv("DEBUG")) or False
+
+if settings.JASMIN_K8S:
+    try:
+        config.load_incluster_config()
+        K8S_CLIENT = client.CoreV1Api()
+        print "Main: K8S API initialized."
+    except config.ConfigException as e:
+        print "Main:ERROR: Cannot initialize K8S environment, terminating:", e
+        sys.exit(-1)
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
