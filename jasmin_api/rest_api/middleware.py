@@ -69,7 +69,8 @@ class TelnetConnectionMiddleware(object):
             print "Response K8S: {}".format(len(api_response.items))
         msg = []
         for i in api_response.items:
-            msg.append(i.metadata.name)
+            if hasattr(i, "status"):
+                msg.append(i.status.podIP)
 
         if len(msg) == 0:
             raise TelnetLoginFailed
