@@ -24,7 +24,6 @@ class TelnetConnectionMiddleware(object):
 
         if not request.path.startswith('/api/'):
             return None
-        request.telnet = None
         if settings.JASMIN_DOCKER:
             request.telnet_list = []
             for port in settings.JASMIN_DOCKER_PORTS:
@@ -54,6 +53,10 @@ class TelnetConnectionMiddleware(object):
                 raise TelnetLoginFailed
             else:
                 request.telnet = telnet
+
+        if request.telnet === None:
+            raise TelnetLoginFailed
+
         return None
 
     def set_telnet_list(self):
