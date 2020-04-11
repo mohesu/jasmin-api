@@ -33,7 +33,7 @@ class TelnetConnectionMiddleware(object):
                         request.telnet = telnet
                     else:
                         request.telnet_list.append(telnet)
-            if request.telnet == None
+            if request.telnet == None:
                 raise TelnetLoginFailed
             return None
 
@@ -53,7 +53,7 @@ class TelnetConnectionMiddleware(object):
                         request.telnet = telnet
                     else:
                         request.telnet_list.append(telnet)
-            if request.telnet == None
+            if request.telnet == None:
                 raise TelnetLoginFailed
             print "We find {} pods if telnet connection up".format(len(request.telnet_list))
             return None
