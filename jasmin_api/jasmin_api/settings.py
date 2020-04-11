@@ -22,7 +22,7 @@ JASMIN_DOCKER = bool(os.getenv("JASMIN_DOCKER")) or False  # manage multiple ins
 JASMIN_DOCKER_PORTS = eval(os.getenv("JASMIN_DOCKER_PORTS")) or []
 DEBUG = bool(os.getenv("DEBUG")) or False
 
-if settings.JASMIN_K8S:
+if JASMIN_K8S:
     try:
         config.load_incluster_config()
         K8S_CLIENT = client.CoreV1Api()
