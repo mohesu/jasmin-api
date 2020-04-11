@@ -7,10 +7,7 @@ from .exceptions import TelnetUnexpectedResponse, TelnetConnectionTimeout, Telne
 
 if settings.JASMIN_K8S:
     try:
-        if st.params['ctlloc'] == 'in':
-            config.load_incluster_config()
-        else:
-            config.load_kube_config()
+        config.load_incluster_config()
         k8s_api_obj = client.CoreV1Api()
         print "Main: K8S API initialized."
     except config.ConfigException as e:
