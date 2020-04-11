@@ -9,7 +9,7 @@ if settings.JASMIN_K8S:
     try:
         config.load_incluster_config()
         k8s_api_obj = client.CoreV1Api()
-        print "Main: K8S API initialized."
+        print "Main: K8S API initialized. settings.JASMIN_K8S: {}".format(settings.JASMIN_K8S)
     except config.ConfigException as e:
         print "Main:ERROR: Cannot initialize K8S environment, terminating:", e
         sys.exit(-1)
@@ -26,8 +26,10 @@ class TelnetConnectionMiddleware(object):
             return None
 
         request.telnet = None
+
         if settings.DEBUG:
             print "settings.JASMIN_DOCKER: {}\n settings.JASMIN_K8S: {}".format(settings.JASMIN_DOCKER, settings.JASMIN_K8S)
+
         if settings.JASMIN_DOCKER:
             request.telnet_list = []
             for port in settings.JASMIN_DOCKER_PORTS:
