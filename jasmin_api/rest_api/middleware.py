@@ -21,9 +21,10 @@ class TelnetConnectionMiddleware(object):
         overhead on any other functionality we add, and keeps URL path clear
         for it.
         """
+
         if not request.path.startswith('/api/'):
             return None
-
+        request.telnet = None
         if settings.JASMIN_DOCKER:
             request.telnet_list = []
             for port in settings.JASMIN_DOCKER_PORTS:
