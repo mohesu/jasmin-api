@@ -33,9 +33,9 @@ class TelnetConnectionMiddleware(object):
                         request.telnet = telnet
                     else:
                         request.telnet_list.append(telnet)
-                if request.telnet == None
-                    raise TelnetLoginFailed
-                return None
+            if request.telnet == None
+                raise TelnetLoginFailed
+            return None
 
         if settings.JASMIN_K8S:
             request.telnet_list = []
@@ -53,8 +53,8 @@ class TelnetConnectionMiddleware(object):
                         request.telnet = telnet
                     else:
                         request.telnet_list.append(telnet)
-                if request.telnet == None
-                    raise TelnetLoginFailed
+            if request.telnet == None
+                raise TelnetLoginFailed
             print "We find {} pods if telnet connection up".format(len(request.telnet_list))
             return None
 
