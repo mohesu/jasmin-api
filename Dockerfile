@@ -1,15 +1,41 @@
-FROM python:2.7-alpine
+# Use an official Python image as the base
+FROM python:3.11-alpine
 
-RUN apk add busybox-extras bash
+# Install build tools and system dependencies
+RUN apk add --no-cache \
+    bash \
+    gcc \
+    musl-dev \
+    linux-headers \
+    busybox-extras \
+    postgresql-dev  # If using PostgreSQL, adjust as needed
 
+# Set the working directory
+WORKDIR /app
+
+# Install pipenv or any other dependency manager if needed
+# RUN pip install pipenv
+
+# Copy application code to the container
 COPY . .
 
-RUN pip install -r requirements.txt
+# Install Python dependencies
+RUN pip install --no-cache-dir --upgrade pip
+RUN pip install --no-cache-dir -r requirements.txt
 
+# Collect static files
+RUN python manage.py collectstatic --noinput
+
+# Ensure the entrypoint script is executable
 RUN chmod +x entrypoint.sh
+RUN chmod +x create_user.py
 
+# Expose the required ports
 EXPOSE 8000 8080
 
-ENTRYPOINT ["/entrypoint.sh"]
+# Set environment variables (optional, can also be set via docker-compose)
+ENV PYTHONUNBUFFERED=1
 
-CMD ["python", "/jasmin_api/run_cherrypy.py"]
+# Set entrypoint and default command
+ENTRYPOINT ["/app/entrypoint.sh"]
+CMD ["gunicorn", "jasmin_api.wsgi:application", "--bind", "0.0.0.0:8000"]
