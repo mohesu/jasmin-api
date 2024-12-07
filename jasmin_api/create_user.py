@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
+
+import traceback
+
+from django.contrib.auth import get_user_model
+from django.core.exceptions import ImproperlyConfigured
+from django.core.management import execute_from_command_line
+from dotenv import load_dotenv, find_dotenv
+import logging
 import os
 import sys
-import logging
-from dotenv import load_dotenv, find_dotenv
-from django.core.exceptions import ImproperlyConfigured
-from django.contrib.auth import get_user_model
-from django.core.management import execute_from_command_line
 
 # Configure logging
 logging.basicConfig(

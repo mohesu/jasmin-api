@@ -1,281 +1,389 @@
+import logging
+
 from django.conf import settings
 from django.http import JsonResponse
+from django.utils.datastructures import MultiValueDictKeyError
 
-from rest_framework.viewsets import ViewSet
-from rest_framework.parsers import JSONParser
-from rest_framework.decorators import detail_route, parser_classes
-
-from rest_api.tools import set_ikeys, sync_conf_instances
 from rest_api.exceptions import (
     JasminSyntaxError, JasminError,
-    UnknownError, MissingKeyError, ObjectNotFoundError)
+    UnknownError, MissingKeyError, ObjectNotFoundError
+)
+from rest_api.tools import set_ikeys, sync_conf_instances
+
+from rest_framework.decorators import action, parser_classes  # Replaced deprecated decorators
+from rest_framework.parsers import JSONParser
+from rest_framework.viewsets import ViewSet
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 STANDARD_PROMPT = settings.STANDARD_PROMPT
 INTERACTIVE_PROMPT = settings.INTERACTIVE_PROMPT
 
 
 class UserViewSet(ViewSet):
-    "ViewSet for managing *Jasmin* users (*not* Django auth users)"
+    """
+    ViewSet for managing Jasmin users (*not* Django auth users).
+
+    Supports listing, retrieving, creating, updating, enabling, disabling,
+    unbinding, banning, and deleting Jasmin users via telnet commands.
+    """
     lookup_field = 'uid'
 
     def get_user(self, telnet, uid, silent=False):
-        """Gets a single users data
-        silent supresses Http404 exception if user not found"""
-        telnet.sendline('user -s ' + uid)
+        """
+        Retrieve a single user's data.
+
+        :param telnet: Telnet connection to Jasmin server.
+        :param uid: User identifier.
+        :param silent: If True, suppress Http404 exception if user not found.
+        :return: Dictionary containing user data.
+        :raises ObjectNotFoundError: If user is not found and silent=False.
+        """
+        telnet.sendline(f'user -s {uid}')
         matched_index = telnet.expect([
-                r'.+Unknown User:.*' + STANDARD_PROMPT,
-                r'.+Usage: user.*' + STANDARD_PROMPT,
-                r'(.+)\n' + STANDARD_PROMPT,
+            rf'.+Unknown User:.*{STANDARD_PROMPT}',
+            rf'.+Usage: user.*{STANDARD_PROMPT}',
+            rf'(.+)\n{STANDARD_PROMPT}',
         ])
+
         if matched_index != 2:
             if silent:
-                return
-            else:
-                raise ObjectNotFoundError('Unknown user: %s' % uid)
+                return None
+            raise ObjectNotFoundError(f'Unknown user: {uid}')
+
         result = telnet.match.group(1)
         user = {}
+        # Skip the first line if it's a header or irrelevant
         for line in [l for l in result.splitlines() if l][1:]:
-            d = [x for x in line.split() if x]
-            if len(d) == 2:
-                user[d[0]] = d[1]
-            elif len(d) == 4:
-                # Not DRY, could be more elegant
-                if not d[0] in user:
-                    user[d[0]] = {}
-                if not d[1] in user[d[0]]:
-                    user[d[0]][d[1]] = {}
-                if not d[2] in user[d[0]][d[1]]:
-                    user[d[0]][d[1]][d[2]] = {}
-                user[d[0]][d[1]][d[2]] = d[3]
-            # each line has two or four lines so above exhaustive
+            parts = [x for x in line.split() if x]
+            if len(parts) == 2:
+                user[parts[0]] = parts[1]
+            elif len(parts) == 4:
+                # Handling nested attributes
+                if parts[0] not in user:
+                    user[parts[0]] = {}
+                if parts[1] not in user[parts[0]]:
+                    user[parts[0]][parts[1]] = {}
+                user[parts[0]][parts[1]][parts[2]] = parts[3]
+            # Assumes each line has either 2 or 4 elements
         return user
 
     def retrieve(self, request, uid):
-        "Retrieve data for one user"
-        return JsonResponse({'user': self.get_user(request.telnet, uid)})
+        """
+        Retrieve data for one user.
+
+        :param uid: User identifier.
+        :return: JsonResponse containing user data.
+        """
+        try:
+            user = self.get_user(request.telnet, uid)
+            return JsonResponse({'user': user})
+        except ObjectNotFoundError as e:
+            logger.error(f"Error retrieving user: {e}")
+            raise UnknownError(detail=str(e))
 
     def list(self, request):
-        "List users. No parameters"
+        """
+        List all users.
+
+        No parameters required.
+
+        :return: JsonResponse containing a list of users.
+        """
         telnet = request.telnet
         telnet.sendline('user -l')
-        telnet.expect([r'(.+)\n' + STANDARD_PROMPT])
+        telnet.expect([rf'(.+)\n{STANDARD_PROMPT}'])
         result = telnet.match.group(0).strip()
         if len(result) < 3:
             return JsonResponse({'users': []})
 
         results = [l for l in result.splitlines() if l]
+        # Extract UIDs, removing the '#' prefix and handling disabled users (starting with '!')
         annotated_uids = [u.split(None, 1)[0][1:] for u in results[2:-2]]
         users = []
         for auid in annotated_uids:
-            if auid[0] == '!':
-                udata = self.get_user(telnet, auid[1:], True)
-                udata['status'] = 'disabled'
+            if auid.startswith('!'):
+                udata = self.get_user(telnet, auid[1:], silent=True)
+                if udata:
+                    udata['status'] = 'disabled'
             else:
-                udata = self.get_user(telnet, auid, True)
-                udata['status'] = 'enabled'
-            users.append(udata)
-        return JsonResponse(
-            {
-                # return users skipping None (== nonexistent user)
-                'users': [u for u in users if u]
-            }
-        )
+                udata = self.get_user(telnet, auid, silent=True)
+                if udata:
+                    udata['status'] = 'enabled'
+            if udata:
+                users.append(udata)
+        return JsonResponse({'users': users})
 
     def create(self, request):
-        """Create a User.
-        Required parameters: username, password, uid (user identifier), gid (group identifier),
-        ---
-        # YAML
-        omit_serializer: true
-        parameters:
-        - name: uid
-          description: Username identifier
-          required: true
-          type: string
-          paramType: form
-        - name: gid
-          description: Group identifier
-          required: true
-          type: string
-          paramType: form
-        - name: username
-          description: Username
-          required: true
-          type: string
-          paramType: form
-        - name: password
-          description: Password
-          required: true
-          type: string
-          paramType: form
+        """
+        Create a new user.
+
+        Required parameters: uid, gid, username, password.
+
+        :param request: DRF Request object containing user data.
+        :return: JsonResponse containing the created user's data.
+        :raises MissingKeyError: If required parameters are missing.
         """
         telnet = request.telnet
         data = request.data
         try:
-            uid, gid, username, password = \
-                data['uid'], data['gid'], data['username'], data['password']
-        except Exception:
-            raise MissingKeyError('Missing parameter: uid, gid, username and/or password required')
-        telnet.sendline('user -a')
-        telnet.expect(r'Adding a new User(.+)\n' + INTERACTIVE_PROMPT)
-        set_ikeys(
-            telnet,
-            {
-                'uid': uid, 'gid': gid, 'username': username,
-                'password': password
-            }
-        )
-        telnet.sendline('persist\n')
-        telnet.expect(r'.*' + STANDARD_PROMPT)
-        if settings.JASMIN_DOCKER or settings.JASMIN_K8S:
-            sync_conf_instances(request.telnet_list)
-        return JsonResponse({'user': self.get_user(telnet, uid)})
+            uid = data['uid']
+            gid = data['gid']
+            username = data['username']
+            password = data['password']
+        except KeyError as e:
+            raise MissingKeyError(f'Missing parameter: {e.args[0]} is required')
 
-    @parser_classes((JSONParser,))
+        telnet.sendline('user -a')
+        telnet.expect(rf'Adding a new User(.+)\n{INTERACTIVE_PROMPT}')
+        user_data = {
+            'uid': uid,
+            'gid': gid,
+            'username': username,
+            'password': password
+        }
+        set_ikeys(telnet, user_data)
+
+        telnet.sendline('persist\n')
+        telnet.expect(rf'.*{STANDARD_PROMPT}')
+
+        if settings.JASMIN_DOCKER or settings.JASMIN_K8S:
+            sync_conf_instances(getattr(request, 'telnet_list', []))
+
+        user = self.get_user(telnet, uid)
+        return JsonResponse({'user': user})
+
+    @action(detail=True, methods=['put'], url_path='enable')
+    def enable(self, request, uid):
+        """
+        Enable a user.
+
+        :param uid: User identifier.
+        :return: JsonResponse indicating the user's new status.
+        """
+        return self.simple_user_action(
+            telnet=request.telnet,
+            telnet_list=getattr(request, 'telnet_list', []),
+            action='e',
+            uid=uid
+        )
+
+    @action(detail=True, methods=['put'], url_path='disable')
+    def disable(self, request, uid):
+        """
+        Disable a user.
+
+        :param uid: User identifier.
+        :return: JsonResponse indicating the user's new status.
+        """
+        return self.simple_user_action(
+            telnet=request.telnet,
+            telnet_list=getattr(request, 'telnet_list', []),
+            action='d',
+            uid=uid
+        )
+
+    @action(detail=True, methods=['put'], url_path='smpp-unbind')
+    def smpp_unbind(self, request, uid):
+        """
+        Unbind user from SMPP server.
+
+        :param uid: User identifier.
+        :return: JsonResponse indicating the result.
+        """
+        return self.simple_user_action(
+            telnet=request.telnet,
+            telnet_list=getattr(request, 'telnet_list', []),
+            action='-smpp-unbind',
+            uid=uid
+        )
+
+    @action(detail=True, methods=['put'], url_path='smpp-ban')
+    def smpp_ban(self, request, uid):
+        """
+        Unbind and ban user from SMPP server.
+
+        :param uid: User identifier.
+        :return: JsonResponse indicating the result.
+        """
+        return self.simple_user_action(
+            telnet=request.telnet,
+            telnet_list=getattr(request, 'telnet_list', []),
+            action='-smpp-ban',
+            uid=uid
+        )
+
+    @action(detail=True, methods=['patch'], parser_classes=[JSONParser], url_path='partial-update')
     def partial_update(self, request, uid):
-        """Update some user attributes
+        """
+        Update some user attributes.
 
         JSON requests only. The updates parameter is a list of lists.
-        Each list is a list of valid arguments to user update. For example:
+        Each inner list contains valid arguments for user update.
 
-        * ["gid", "mygroup"] will set the user's group to mygroup
-        * ["mt_messaging_cred", "authorization", "smpps_send", "False"]
-        will remove the user privilege to send SMSs through the SMPP API.
-        ---
-        # YAML
-        omit_serializer: true
-        parameters:
-        - name: updates
-          description: Items to update
-          required: true
-          type: array
-          paramType: body
+        Example:
+            [
+                ["gid", "newgroup"],
+                ["mt_messaging_cred", "authorization", "smpps_send", "False"]
+            ]
+
+        :param uid: User identifier.
+        :param request: DRF Request object containing updates.
+        :return: JsonResponse with updated user data.
+        :raises:
+            JasminSyntaxError: If updates are malformed.
+            UnknownError: If the user does not exist.
+            JasminError: For other errors returned by Jasmin.
         """
         telnet = request.telnet
-        telnet.sendline('user -u ' + uid)
+        telnet.sendline(f'user -u {uid}')
         matched_index = telnet.expect([
-            r'.*Updating User(.*)' + INTERACTIVE_PROMPT,
-            r'.*Unknown User: (.*)' + STANDARD_PROMPT,
-            r'.+(.*)(' + INTERACTIVE_PROMPT + '|' + STANDARD_PROMPT + ')',
-        ])
-        if matched_index == 1:
-            raise UnknownError(detail='Unknown user:' + uid)
-        if matched_index != 0:
-            raise JasminError(detail=" ".join(telnet.match.group(0).split()))
-        updates = request.data
-        if not ((type(updates) is list) and (len(updates) >= 1)):
-            raise JasminSyntaxError('updates should be a list')
-        for update in updates:
-            if not ((type(update) is list) and (len(update) >= 1)):
-                raise JasminSyntaxError("Not a list: %s" % update)
-            telnet.sendline(" ".join([x for x in update]))
-            matched_index = telnet.expect([
-                r'.*(Unknown User key:.*)' + INTERACTIVE_PROMPT,
-                r'.*(Error:.*)' + STANDARD_PROMPT,
-                r'.*' + INTERACTIVE_PROMPT,
-                r'.+(.*)(' + INTERACTIVE_PROMPT + '|' + STANDARD_PROMPT + ')',
+            rf'.*Updating User(.*){INTERACTIVE_PROMPT}',
+            rf'.*Unknown User: (.*){STANDARD_PROMPT}',
+            rf'.+(.*)(' + INTERACTIVE_PROMPT + '|' + STANDARD_PROMPT + ')',
             ])
+
+        if matched_index == 1:
+            raise UnknownError(detail=f'Unknown user: {uid}')
+        if matched_index != 0:
+            error_message = telnet.match.group(0).strip()
+            raise JasminError(detail=error_message)
+
+        updates = request.data
+        if not isinstance(updates, list) or not updates:
+            raise JasminSyntaxError('Updates should be a non-empty list of lists.')
+
+        for update in updates:
+            if not isinstance(update, list) or not update:
+                raise JasminSyntaxError(f'Invalid update format: {update}')
+            command = " ".join(update)
+            telnet.sendline(f"{command}\n")
+            matched_index = telnet.expect([
+                rf'.*(Unknown User key:.*){INTERACTIVE_PROMPT}',
+                rf'.*(Error:.*){STANDARD_PROMPT}',
+                rf'.*{INTERACTIVE_PROMPT}',
+                rf'.+(.*)(' + INTERACTIVE_PROMPT + '|' + STANDARD_PROMPT + ')',
+                ])
             if matched_index != 2:
-                raise JasminSyntaxError(
-                    detail=" ".join(telnet.match.group(1).split()))
-        telnet.sendline('ok')
+                error_detail = telnet.match.group(1).strip() if telnet.match.group(1) else 'Unknown error'
+                raise JasminSyntaxError(detail=error_detail)
+
+        telnet.sendline('ok\n')
         ok_index = telnet.expect([
-            r'(.*)' + INTERACTIVE_PROMPT,
-            r'.*' + STANDARD_PROMPT,
+            rf'.*(Error:.*){STANDARD_PROMPT}',
+            rf'.*{INTERACTIVE_PROMPT}',
         ])
         if ok_index == 0:
-            raise JasminSyntaxError(
-                detail=" ".join(telnet.match.group(1).split()))
+            error_detail = telnet.match.group(1).strip()
+            raise JasminSyntaxError(detail=error_detail)
+
         telnet.sendline('persist\n')
-        # Not sure why this needs to be repeated
-        telnet.expect(r'.*' + STANDARD_PROMPT)
+        telnet.expect(rf'.*{STANDARD_PROMPT}')
+
         if settings.JASMIN_DOCKER or settings.JASMIN_K8S:
-            sync_conf_instances(request.telnet_list)
-        return JsonResponse({'user': self.get_user(telnet, uid)})
+            sync_conf_instances(getattr(request, 'telnet_list', []))
+
+        user = self.get_user(telnet, uid)
+        return JsonResponse({'user': user})
 
     def simple_user_action(self, telnet, telnet_list, action, uid, return_user=True):
-        telnet.sendline('user -%s %s' % (action, uid))
+        """
+        Perform a simple action (e.g., remove, enable, disable, unbind, ban) on a user.
+
+        :param telnet: Telnet connection.
+        :param telnet_list: List of telnet connections for syncing.
+        :param action: The action character (e.g., 'r' for remove, 'e' for enable).
+        :param uid: User identifier.
+        :param return_user: If True, return the updated user data after the action.
+        :return: JsonResponse with the result.
+        :raises:
+            UnknownError: If the user does not exist.
+            JasminError: If the action fails.
+        """
+        telnet.sendline(f'user -{action} {uid}')
         matched_index = telnet.expect([
-            r'.+Successfully(.+)' + STANDARD_PROMPT,
-            r'.+Unknown User: (.+)' + STANDARD_PROMPT,
-            r'.+(.*)' + STANDARD_PROMPT,
+            rf'.+Successfully(.+){STANDARD_PROMPT}',
+            rf'.+Unknown User: (.+){STANDARD_PROMPT}',
+            rf'.+(.*){STANDARD_PROMPT}',
         ])
+
         if matched_index == 0:
+            # Action succeeded
             telnet.sendline('persist\n')
+            telnet.expect(rf'.*{STANDARD_PROMPT}')
             if settings.JASMIN_DOCKER or settings.JASMIN_K8S:
                 sync_conf_instances(telnet_list)
             if return_user:
-                telnet.expect(r'.*' + STANDARD_PROMPT)
-                return JsonResponse({'user': self.get_user(telnet, uid)})
+                telnet.expect(rf'.*{STANDARD_PROMPT}')
+                user = self.get_user(telnet, uid)
+                return JsonResponse({'user': user})
             else:
                 return JsonResponse({'uid': uid})
         elif matched_index == 1:
-            raise UnknownError(detail='No user:' + uid)
+            # User not found
+            raise UnknownError(detail=f'No user: {uid}')
         else:
-            raise JasminError(telnet.match.group(1))
+            # Some other error
+            error_message = telnet.match.group(1).strip() if telnet.match.group(1) else 'Unknown error'
+            raise JasminError(error_message)
 
-    def destroy(self, request, uid):
-        """Delete a user. One parameter required, the user identifier (a string)
+    @action(detail=True, methods=['put'], url_path='enable')
+    def enable(self, request, uid):
+        """
+        Enable a user.
 
-        HTTP codes indicate result as follows
-
-        - 200: successful deletion
-        - 404: nonexistent user
-        - 400: other error
+        :param uid: User identifier.
+        :return: JsonResponse indicating the user's new status.
         """
         return self.simple_user_action(
-            request.telnet, request.telnet_list, 'r', uid, return_user=False)
+            telnet=request.telnet,
+            telnet_list=getattr(request, 'telnet_list', []),
+            action='e',
+            uid=uid
+        )
 
-    @detail_route(methods=['put'])
-    def enable(self, request, uid):
-        """Enable a user. One parameter required, the user identifier (a string)
-
-        HTTP codes indicate result as follows
-
-        - 200: successful deletion
-        - 404: nonexistent user
-        - 400: other error
-        """
-        return self.simple_user_action(request.telnet, request.telnet_list, 'e', uid)
-
-    @detail_route(methods=['put'])
+    @action(detail=True, methods=['put'], url_path='disable')
     def disable(self, request, uid):
-        """Disable a user.
-
-        One parameter required, the user identifier (a string)
-
-        HTTP codes indicate result as follows
-
-        - 200: successful deletion
-        - 404: nonexistent user
-        - 400: other error
         """
-        return self.simple_user_action(request.telnet, request.telnet_list, 'd', uid)
+        Disable a user.
 
-    @detail_route(methods=['put'])
+        :param uid: User identifier.
+        :return: JsonResponse indicating the user's new status.
+        """
+        return self.simple_user_action(
+            telnet=request.telnet,
+            telnet_list=getattr(request, 'telnet_list', []),
+            action='d',
+            uid=uid
+        )
+
+    @action(detail=True, methods=['put'], url_path='smpp-unbind')
     def smpp_unbind(self, request, uid):
-        """Unbind user from smpp server
-
-        One parameter required, the user identifier (a string)
-
-        HTTP codes indicate result as follows
-
-        - 200: successful unbind
-        - 404: nonexistent user
-        - 400: other error
         """
-        return self.simple_user_action(request.telnet, request.telnet_list, '-smpp-unbind', uid)
+        Unbind user from SMPP server.
 
-    @detail_route(methods=['put'])
+        :param uid: User identifier.
+        :return: JsonResponse indicating the result.
+        """
+        return self.simple_user_action(
+            telnet=request.telnet,
+            telnet_list=getattr(request, 'telnet_list', []),
+            action='-smpp-unbind',
+            uid=uid
+        )
+
+    @action(detail=True, methods=['put'], url_path='smpp-ban')
     def smpp_ban(self, request, uid):
-        """Unbind and ban user from smpp server
-
-        One parameter required, the user identifier (a string)
-
-        HTTP codes indicate result as follows
-
-        - 200: successful ban and unbind
-        - 404: nonexistent user
-        - 400: other error
         """
-        return self.simple_user_action(request.telnet, request.telnet_list, '-smpp-ban', uid)
+        Unbind and ban user from SMPP server.
+
+        :param uid: User identifier.
+        :return: JsonResponse indicating the result.
+        """
+        return self.simple_user_action(
+            telnet=request.telnet,
+            telnet_list=getattr(request, 'telnet_list', []),
+            action='-smpp-ban',
+            uid=uid
+        )

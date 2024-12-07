@@ -7,8 +7,7 @@ RUN apk add --no-cache \
     gcc \
     musl-dev \
     linux-headers \
-    busybox-extras \
-    postgresql-dev  # If using PostgreSQL, adjust as needed
+    busybox-extras
 
 # Set the working directory
 WORKDIR /app
@@ -24,11 +23,11 @@ RUN pip install --no-cache-dir --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Collect static files
-RUN python manage.py collectstatic --noinput
+RUN python jasmin_api/manage.py collectstatic --noinput
 
 # Ensure the entrypoint script is executable
 RUN chmod +x entrypoint.sh
-RUN chmod +x create_user.py
+RUN chmod +x jasmin_api/create_user.py
 
 # Expose the required ports
 EXPOSE 8000 8080

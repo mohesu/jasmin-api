@@ -1,12 +1,16 @@
-import pexpect
+import logging
+import traceback
 from django.conf import settings
 from django.utils.deprecation import MiddlewareMixin
-
+import pexpect
 from .exceptions import (
     TelnetUnexpectedResponse,
     TelnetConnectionTimeout,
     TelnetLoginFailed,
 )
+
+# Logging configuration
+logging.basicConfig(level=logging.INFO)
 
 
 class TelnetConnectionMiddleware(MiddlewareMixin):
@@ -25,17 +29,15 @@ class TelnetConnectionMiddleware(MiddlewareMixin):
         request.telnet = None
 
         if settings.DEBUG:
-            print(f"settings.JASMIN_DOCKER: {settings.JASMIN_DOCKER}")
-            print(f"settings.JASMIN_K8S: {settings.JASMIN_K8S}")
+            logging.info(f"settings.JASMIN_DOCKER: {settings.JASMIN_DOCKER}")
+            logging.info(f"settings.JASMIN_K8S: {settings.JASMIN_K8S}")
 
+        # Docker-specific Telnet setup
         if settings.JASMIN_DOCKER:
             request.telnet_list = []
             for port in settings.JASMIN_DOCKER_PORTS:
                 telnet = self.telnet_request(
-                    settings.TELNET_HOST,
-                    port,
-                    settings.TELNET_USERNAME,
-                    settings.TELNET_PW
+                    settings.TELNET_HOST, port, settings.TELNET_USERNAME, settings.TELNET_PW
                 )
                 try:
                     telnet.expect_exact(settings.STANDARD_PROMPT)
@@ -50,17 +52,15 @@ class TelnetConnectionMiddleware(MiddlewareMixin):
                 raise TelnetLoginFailed
             return None
 
+        # Kubernetes-specific Telnet setup
         if settings.JASMIN_K8S:
             request.telnet_list = []
             all_pods = self.set_telnet_list()
             if settings.DEBUG:
-                print(f"Finding pods... Found {len(all_pods)} pods in K8s.")
+                logging.info(f"Found {len(all_pods)} pods in K8s.")
             for host in all_pods:
                 telnet = self.telnet_request(
-                    host,
-                    settings.TELNET_PORT,
-                    settings.TELNET_USERNAME,
-                    settings.TELNET_PW
+                    host, settings.TELNET_PORT, settings.TELNET_USERNAME, settings.TELNET_PW
                 )
                 try:
                     telnet.expect_exact(settings.STANDARD_PROMPT)
@@ -73,16 +73,11 @@ class TelnetConnectionMiddleware(MiddlewareMixin):
                         request.telnet_list.append(telnet)
             if request.telnet is None:
                 raise TelnetLoginFailed
-            if settings.DEBUG:
-                print(f"Found {len(request.telnet_list)} pods with Telnet connection up.")
             return None
 
-        # Default Telnet connection for non-Docker, non-K8s setups
+        # Default Telnet setup
         telnet = self.telnet_request(
-            settings.TELNET_HOST,
-            settings.TELNET_PORT,
-            settings.TELNET_USERNAME,
-            settings.TELNET_PW
+            settings.TELNET_HOST, settings.TELNET_PORT, settings.TELNET_USERNAME, settings.TELNET_PW
         )
         try:
             telnet.expect_exact(settings.STANDARD_PROMPT)
@@ -102,25 +97,18 @@ class TelnetConnectionMiddleware(MiddlewareMixin):
         """
         try:
             api_response = settings.K8S_CLIENT.list_namespaced_pod(
-                settings.JASMIN_K8S_NAMESPACE,
-                label_selector="jasmin"
+                settings.JASMIN_K8S_NAMESPACE, label_selector="jasmin"
             )
-        except ApiException as e:
-            if settings.DEBUG:
-                print(f"API Exception while listing pods: {e}")
-            raise TelnetUnexpectedResponse(detail="Failed to list pods from Kubernetes.")
-
-        if settings.DEBUG:
-            print(f"Response K8S: {len(api_response.items)} pods found.")
+        except Exception as e:
+            logging.error(f"API Exception while listing pods: {e}")
+            raise TelnetUnexpectedResponse("Failed to list pods from Kubernetes.")
 
         pod_ips = [
-            item.status.pod_ip
-            for item in api_response.items
-            if hasattr(item, "status") and item.status.pod_ip
+            item.status.pod_ip for item in api_response.items if item.status and item.status.pod_ip
         ]
 
         if not pod_ips:
-            raise TelnetLoginFailed(detail="No Jasmin pods found in Kubernetes.")
+            raise TelnetLoginFailed("No Jasmin pods found in Kubernetes.")
 
         return pod_ips
 
@@ -130,8 +118,7 @@ class TelnetConnectionMiddleware(MiddlewareMixin):
         """
         try:
             telnet = pexpect.spawn(
-                f"telnet {host} {port}",
-                timeout=settings.TELNET_TIMEOUT,
+                f"telnet {host} {port}", timeout=settings.TELNET_TIMEOUT
             )
             telnet.expect_exact('Username: ')
             telnet.sendline(user)
@@ -148,7 +135,7 @@ class TelnetConnectionMiddleware(MiddlewareMixin):
         """
         Ensure Telnet connections are closed when the response is sent.
         """
-        if hasattr(request, 'telnet') and request.telnet is not None:
+        if hasattr(request, 'telnet') and request.telnet:
             try:
                 request.telnet.sendline('quit')
                 request.telnet.expect_exact(settings.STANDARD_PROMPT)

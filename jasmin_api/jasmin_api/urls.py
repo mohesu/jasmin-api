@@ -1,10 +1,12 @@
+import logging
+from django.conf import settings
 from django.contrib import admin
 from django.urls import include, path, re_path
-from django.conf import settings
 from django.views import static
+from rest_framework import permissions
 from rest_framework.routers import DefaultRouter
-
-# Import your viewsets
+from drf_yasg import openapi
+from drf_yasg.views import get_schema_view
 from rest_api.views import (
     GroupViewSet,
     UserViewSet,
@@ -15,10 +17,8 @@ from rest_api.views import (
     FiltersViewSet,
 )
 
-# Import drf-yasg for Swagger documentation
-from drf_yasg.views import get_schema_view
-from drf_yasg import openapi
-from rest_framework import permissions
+# Configure logging
+logging.basicConfig(level=logging.INFO)
 
 # Initialize the router and register viewsets
 router = DefaultRouter()
@@ -44,6 +44,7 @@ schema_view = get_schema_view(
     permission_classes=(permissions.AllowAny,),
 )
 
+# Define URL patterns
 urlpatterns = [
     # Admin site
     path('admin/', admin.site.urls),
@@ -63,5 +64,5 @@ urlpatterns = [
 # Serve static files only in development
 if settings.DEBUG:
     urlpatterns += [
-        path('static/<path:path>/', static.serve, {'document_root': settings.STATIC_ROOT}),
+        re_path(r'^static/(?P<path>.*)$', static.serve, {'document_root': settings.STATIC_ROOT}),
     ]

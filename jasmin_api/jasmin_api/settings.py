@@ -1,7 +1,18 @@
-import os
-import sys
+import logging
+import traceback
+
+logging.basicConfig(level=logging.INFO)
+
 from kubernetes import client, config
+
 from kubernetes.client.rest import ApiException
+
+import os
+
+import sys
+
+
+
 
 # Base directory
 SETTINGS_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -27,9 +38,9 @@ if JASMIN_K8S:
     try:
         config.load_incluster_config()
         K8S_CLIENT = client.CoreV1Api()
-        print("Main: K8S API initialized.")
+        logging.info("Main: K8S API initialized.")
     except config.ConfigException as e:
-        print(f"Main: ERROR: Cannot initialize K8S environment, terminating: {e}")
+        logging.info(f"Main: ERROR: Cannot initialize K8S environment, terminating: {e}")
         sys.exit(-1)
 
 REST_FRAMEWORK = {

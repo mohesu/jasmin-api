@@ -1,4 +1,12 @@
+import logging
+import traceback
+
+logging.basicConfig(level=logging.INFO)
+
 from rest_framework.exceptions import APIException
+
+
+
 
 
 class TelnetUnexpectedResponse(APIException):

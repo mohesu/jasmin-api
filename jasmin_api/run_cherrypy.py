@@ -1,9 +1,19 @@
-#!/usr/bin/env python
-from jasmin_api.wsgi import application
+import logging
+import traceback
+
+logging.basicConfig(level=logging.INFO)
 
 from django.conf import settings
 
+from jasmin_api.wsgi import application
+
 import cherrypy
+
+
+
+#!/usr/bin/env python
+
+
 
 cherrypy.tree.graft(application, "/")
 

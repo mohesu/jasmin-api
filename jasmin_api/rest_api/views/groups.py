@@ -1,11 +1,24 @@
+import logging
+import traceback
+
+logging.basicConfig(level=logging.INFO)
+
 from django.conf import settings
+
 from django.http import JsonResponse
 
-from rest_framework.viewsets import ViewSet
-from rest_framework.decorators import detail_route
-
 from rest_api.exceptions import MissingKeyError, ActionFailed, ObjectNotFoundError
+
 from rest_api.tools import set_ikeys, sync_conf_instances
+
+from rest_framework.decorators import action
+
+from rest_framework.viewsets import ViewSet
+
+
+
+
+
 
 STANDARD_PROMPT = settings.STANDARD_PROMPT
 INTERACTIVE_PROMPT = settings.INTERACTIVE_PROMPT
@@ -91,7 +104,7 @@ class GroupViewSet(ViewSet):
         """
         return self.simple_group_action(request.telnet, request.telnet_list, 'r', gid)
 
-    @detail_route(methods=['put'])
+    @action(detail=True, methods=['put'])
     def enable(self, request, gid):
         """Enable a group. One parameter required, the group identifier (a string)
 
@@ -104,7 +117,7 @@ class GroupViewSet(ViewSet):
         return self.simple_group_action(request.telnet, request.telnet_list, 'e', gid)
 
 
-    @detail_route(methods=['put'])
+    @action(detail=True, methods=['put'])
     def disable(self, request, gid):
         """Disable a group.
 
