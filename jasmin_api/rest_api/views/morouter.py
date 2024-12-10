@@ -11,7 +11,7 @@ from rest_framework.decorators import action  # Replaces the deprecated list_rou
 
 from rest_api.exceptions import (
     JasminSyntaxError, JasminError, UnknownError, MissingKeyError,
-    MutipleValuesRequiredKeyError, ObjectNotFoundError
+    ObjectNotFoundError, MultipleValuesRequiredKeyError
 )
 from rest_api.tools import set_ikeys, split_cols, sync_conf_instances
 
@@ -39,7 +39,7 @@ class MORouterViewSet(ViewSet):
         """
         telnet.sendline('morouter -l')
         telnet.expect([r'(.+)\n' + STANDARD_PROMPT])
-        result = telnet.match.group(0).strip().replace("\r", '').split("\n")
+        result = telnet.match.group(0).decode('utf-8').strip().replace("\r", '').split("\n")
 
         # If fewer than 3 lines, it means no routes were returned
         if len(result) < 3:
@@ -150,7 +150,7 @@ class MORouterViewSet(ViewSet):
         if rtype == 'randomroundrobinmoroute':
             # At least two connectors needed for round robin
             if len(connectors) < 2:
-                raise MutipleValuesRequiredKeyError(
+                raise MultipleValuesRequiredKeyError(
                     'RandomRoundrobinMORoute requires at least two connectors')
             ikeys['connectors'] = ';'.join(connectors)
         else:
@@ -202,7 +202,7 @@ class MORouterViewSet(ViewSet):
             raise UnknownError(detail=f'No router: {order}')
         else:
             # Other Jasmin-related error
-            raise JasminError(telnet.match.group(1))
+            raise JasminError(telnet.match.group(1).decode('utf-8'))
 
     def destroy(self, request, order):
         """

@@ -32,7 +32,7 @@ class GroupViewSet(ViewSet):
         telnet = request.telnet
         telnet.sendline('group -l')
         telnet.expect([r'(.+)\n' + STANDARD_PROMPT])
-        result = telnet.match.group(0).strip().replace("\r", '').split("\n")
+        result = telnet.match.group(0).decode('utf-8').strip().replace("\r", '').split("\n")
         if len(result) < 3:
             return JsonResponse({'groups': []})
         groups = result[2:-2]
@@ -91,7 +91,7 @@ class GroupViewSet(ViewSet):
         elif matched_index == 1:
             raise ObjectNotFoundError('Unknown group: %s' % gid)
         else:
-            raise ActionFailed(telnet.match.group(1))
+            raise ActionFailed(telnet.match.group(1).decode('utf-8'))
 
     def destroy(self, request, gid):
         """Delete a group. One parameter required, the group identifier (a string)

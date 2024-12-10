@@ -9,7 +9,7 @@ from django.utils.datastructures import MultiValueDictKeyError
 from rest_api.exceptions import (
     JasminSyntaxError, JasminError,
     UnknownError, MissingKeyError,
-    MutipleValuesRequiredKeyError, ObjectNotFoundError
+    MultipleValuesRequiredKeyError, ObjectNotFoundError
 )
 from rest_api.tools import set_ikeys, split_cols, sync_conf_instances
 
@@ -41,7 +41,7 @@ class MTRouterViewSet(ViewSet):
         """
         telnet.sendline('mtrouter -l')
         telnet.expect([rf'(.+)\n{STANDARD_PROMPT}'])
-        result = telnet.match.group(0).strip().replace("\r", '').split("\n")
+        result = telnet.match.group(0).decode('utf-8').strip().replace("\r", '').split("\n")
 
         if len(result) < 3:
             return {'mtrouters': []}
@@ -183,7 +183,7 @@ class MTRouterViewSet(ViewSet):
 
         if rtype == 'randomroundrobinmtroute':
             if len(connectors) < 2:
-                raise MutipleValuesRequiredKeyError(
+                raise MultipleValuesRequiredKeyError(
                     'RandomRoundrobinMTRoute requires at least two connectors'
                 )
             ikeys['connectors'] = ';'.join(connectors)
@@ -250,7 +250,7 @@ class MTRouterViewSet(ViewSet):
             raise UnknownError(detail=f'No router: {order}')
         else:
             # Some other Jasmin-related error
-            error_message = telnet.match.group(1).strip() if telnet.match.group(1) else 'Unknown error'
+            error_message = telnet.match.group(1).decode('utf-8').strip() if telnet.match.group(1).decode('utf-8') else 'Unknown error'
             raise JasminError(error_message)
 
     def destroy(self, request, order):

@@ -1,19 +1,16 @@
 import logging
-import traceback
 from collections import OrderedDict
 
 from django.conf import settings
 from django.http import JsonResponse
 from django.utils.datastructures import MultiValueDictKeyError
-
 from rest_framework.viewsets import ViewSet
 
-from rest_api.tools import set_ikeys, split_cols, sync_conf_instances
 from rest_api.exceptions import (
-    JasminSyntaxError, JasminError, UnknownError,
-    MissingKeyError, MutipleValuesRequiredKeyError,
-    ObjectNotFoundError
+    JasminError, UnknownError,
+    MissingKeyError, ObjectNotFoundError
 )
+from rest_api.tools import set_ikeys, split_cols, sync_conf_instances
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -36,7 +33,7 @@ class FiltersViewSet(ViewSet):
         """
         telnet.sendline('filter -l')
         telnet.expect([r'(.+)\n' + STANDARD_PROMPT])
-        result = telnet.match.group(0).strip().replace("\r", '').split("\n")
+        result = telnet.match.group(0).decode('utf-8').strip().replace("\r", '').split("\n")
 
         # If there are fewer than 3 lines, it means no filters are listed
         if len(result) < 3:
@@ -170,7 +167,7 @@ class FiltersViewSet(ViewSet):
             r'.+Successfully(.+)' + STANDARD_PROMPT,
             r'.+Unknown Filter: (.+)' + STANDARD_PROMPT,
             r'.+(.*)' + STANDARD_PROMPT,
-            ])
+        ])
 
         if matched_index == 0:
             # Action succeeded
@@ -191,7 +188,7 @@ class FiltersViewSet(ViewSet):
             raise UnknownError(detail=f'No filter: {fid}')
         else:
             # Some other Jasmin error
-            raise JasminError(telnet.match.group(1))
+            raise JasminError(telnet.match.group(1).decode('utf-8'))
 
     def destroy(self, request, fid):
         """

@@ -52,7 +52,7 @@ class UserViewSet(ViewSet):
                 return None
             raise ObjectNotFoundError(f'Unknown user: {uid}')
 
-        result = telnet.match.group(1)
+        result = telnet.match.group(1).decode('utf-8')
         user = {}
         # Skip the first line if it's a header or irrelevant
         for line in [l for l in result.splitlines() if l][1:]:
@@ -94,7 +94,7 @@ class UserViewSet(ViewSet):
         telnet = request.telnet
         telnet.sendline('user -l')
         telnet.expect([rf'(.+)\n{STANDARD_PROMPT}'])
-        result = telnet.match.group(0).strip()
+        result = telnet.match.group(0).decode('utf-8').strip()
         if len(result) < 3:
             return JsonResponse({'users': []})
 
@@ -215,7 +215,7 @@ class UserViewSet(ViewSet):
         )
 
     @action(detail=True, methods=['patch'], parser_classes=[JSONParser], url_path='partial-update')
-    def partial_update(self, request, uid):
+    def custom_partial_update(self, request, uid):
         """
         Update some user attributes.
 
@@ -247,7 +247,7 @@ class UserViewSet(ViewSet):
         if matched_index == 1:
             raise UnknownError(detail=f'Unknown user: {uid}')
         if matched_index != 0:
-            error_message = telnet.match.group(0).strip()
+            error_message = telnet.match.group(0).decode('utf-8').strip()
             raise JasminError(detail=error_message)
 
         updates = request.data
@@ -266,7 +266,7 @@ class UserViewSet(ViewSet):
                 rf'.+(.*)(' + INTERACTIVE_PROMPT + '|' + STANDARD_PROMPT + ')',
                 ])
             if matched_index != 2:
-                error_detail = telnet.match.group(1).strip() if telnet.match.group(1) else 'Unknown error'
+                error_detail = telnet.match.group(1).decode('utf-8').strip() if telnet.match.group(1).decode('utf-8') else 'Unknown error'
                 raise JasminSyntaxError(detail=error_detail)
 
         telnet.sendline('ok\n')
@@ -275,7 +275,7 @@ class UserViewSet(ViewSet):
             rf'.*{INTERACTIVE_PROMPT}',
         ])
         if ok_index == 0:
-            error_detail = telnet.match.group(1).strip()
+            error_detail = telnet.match.group(1).decode('utf-8').strip()
             raise JasminSyntaxError(detail=error_detail)
 
         telnet.sendline('persist\n')
@@ -325,7 +325,7 @@ class UserViewSet(ViewSet):
             raise UnknownError(detail=f'No user: {uid}')
         else:
             # Some other error
-            error_message = telnet.match.group(1).strip() if telnet.match.group(1) else 'Unknown error'
+            error_message = telnet.match.group(1).decode('utf-8').strip() if telnet.match.group(1).decode('utf-8') else 'Unknown error'
             raise JasminError(error_message)
 
     @action(detail=True, methods=['put'], url_path='enable')

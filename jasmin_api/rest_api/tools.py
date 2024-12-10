@@ -26,7 +26,7 @@ def set_ikeys(telnet, keys2vals):
             r'.*(Unknown SMPPClientConfig key:.*)' + INTERACTIVE_PROMPT,
             r'.*(Error:.*)' + STANDARD_PROMPT,
         ])
-        result = telnet.match.group(1).strip()
+        result = telnet.match.group(1).decode('utf-8').strip()
         if matched_index == 0:
             raise UnknownError(result)
         if matched_index == 1:
@@ -41,7 +41,7 @@ def set_ikeys(telnet, keys2vals):
     ])
     if ok_index == 0:
         # Remove whitespace and return error
-        raise JasminSyntaxError(" ".join(telnet.match.group(1).split()))
+        raise JasminSyntaxError(" ".join(telnet.match.group(1).decode('utf-8').split()))
 
     return
 

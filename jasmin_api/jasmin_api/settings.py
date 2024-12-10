@@ -32,7 +32,7 @@ JASMIN_K8S = os.getenv("JASMIN_K8S", "True").lower() == "true"  # Manage multipl
 JASMIN_K8S_NAMESPACE = os.getenv("JASMIN_K8S_NAMESPACE")  # Namespace where Jasmin pods reside
 JASMIN_DOCKER = os.getenv("JASMIN_DOCKER", "True").lower() == "true"  # Manage multiple Jasmin Docker instances
 JASMIN_DOCKER_PORTS = eval(os.getenv("JASMIN_DOCKER_PORTS", "[]"))  # Evaluate string as list
-DEBUG = os.getenv("DEBUG", "False").lower() == "true"
+DEBUG = os.getenv("DEBUG", "True").lower() == "true"
 
 if JASMIN_K8S:
     try:
@@ -75,7 +75,7 @@ INTERACTIVE_PROMPT = '> '  # Prompt for interactive commands
 
 # This should be OK for REST API - we are not generating URLs
 # see https://www.djangoproject.com/weblog/2013/feb/19/security/#s-issue-host-header-poisoning
-ALLOWED_HOSTS = ['yourdomain.com', 'www.yourdomain.com']
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'jasmin-api', 'jasmin']
 
 SWAGGER_SETTINGS = {
     'exclude_namespaces': [],

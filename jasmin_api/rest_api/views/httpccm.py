@@ -53,7 +53,7 @@ class HTTPCCMViewSet(ViewSet):
             raise ObjectNotFoundError(f'Unknown connector: {cid}')
 
         # Parse connector details line by line
-        result = telnet.match.group(1)
+        result = telnet.match.group(1).decode('utf-8')
         httpccm = {}
         for line in result.splitlines():
             parts = [x for x in line.split() if x]
@@ -69,7 +69,7 @@ class HTTPCCMViewSet(ViewSet):
         """
         telnet.sendline('httpccm -l')
         telnet.expect([r'(.+)\n' + STANDARD_PROMPT])
-        result = telnet.match.group(0).strip().replace("\r", '').split("\n")
+        result = telnet.match.group(0).decode('utf-8').strip().replace("\r", '').split("\n")
         if len(result) < 3:
             # No connectors found
             return []
@@ -103,7 +103,7 @@ class HTTPCCMViewSet(ViewSet):
             raise ObjectNotFoundError(f'Unknown HTTP Connector: {cid}')
         else:
             # Some other error message returned
-            raise ActionFailed(telnet.match.group(1))
+            raise ActionFailed(telnet.match.group(1).decode('utf-8'))
 
     def list(self, request):
         """
@@ -176,7 +176,7 @@ class HTTPCCMViewSet(ViewSet):
 
         if matched_index != 2:
             # Syntax error in parameters
-            raise JasminSyntaxError(detail=" ".join(telnet.match.group(1).split()))
+            raise JasminSyntaxError(detail=" ".join(telnet.match.group(1).decode('utf-8').split()))
 
         # Persist changes
         telnet.sendline('persist\n')

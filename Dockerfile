@@ -37,4 +37,5 @@ ENV PYTHONUNBUFFERED=1
 
 # Set entrypoint and default command
 ENTRYPOINT ["/app/entrypoint.sh"]
+WORKDIR /app/jasmin_api
 CMD ["gunicorn", "jasmin_api.wsgi:application", "--bind", "0.0.0.0:8000"]

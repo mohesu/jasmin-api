@@ -8,7 +8,7 @@ from django.http import JsonResponse
 from rest_api.exceptions import (
     JasminSyntaxError, JasminError, ActionFailed,
     ObjectNotFoundError, UnknownError, MissingKeyError,
-    MutipleValuesRequiredKeyError
+    MultipleValuesRequiredKeyError
 )
 from rest_api.tools import set_ikeys, split_cols, sync_conf_instances
 
@@ -53,7 +53,7 @@ class SMPPCCMViewSet(ViewSet):
                 return None
             raise ObjectNotFoundError(f'Unknown connector: {cid}')
 
-        result = telnet.match.group(1)
+        result = telnet.match.group(1).decode('utf-8')
         smppccm = {}
         for line in result.splitlines():
             parts = [x for x in line.split() if x]
@@ -71,7 +71,7 @@ class SMPPCCMViewSet(ViewSet):
         """
         telnet.sendline('smppccm -l')
         telnet.expect([rf'(.+)\n{STANDARD_PROMPT}'])
-        result = telnet.match.group(0).strip().replace("\r", '').split("\n")
+        result = telnet.match.group(0).decode('utf-8').strip().replace("\r", '').split("\n")
         if len(result) < 3:
             return []
         return split_cols(result[2:-2])
@@ -108,7 +108,7 @@ class SMPPCCMViewSet(ViewSet):
             raise ObjectNotFoundError(f'Unknown SMPP Connector: {cid}')
         else:
             # Some other error message returned
-            error_message = telnet.match.group(1).strip() if telnet.match.group(1) else 'Unknown error'
+            error_message = telnet.match.group(1).decode('utf-8').strip() if telnet.match.group(1).decode('utf-8') else 'Unknown error'
             raise ActionFailed(error_message)
 
     @action(detail=False, methods=['get'], url_path='status')
@@ -294,7 +294,7 @@ class SMPPCCMViewSet(ViewSet):
         )
 
     @action(detail=True, methods=['patch'], parser_classes=[JSONParser])
-    def partial_update(self, request, cid):
+    def custom_partial_update(self, request, cid):
         """
         Update some SMPP connector attributes.
 
@@ -320,7 +320,7 @@ class SMPPCCMViewSet(ViewSet):
             raise UnknownError(detail=f'Unknown connector: {cid}')
 
         if matched_index != 0:
-            raise JasminError(detail=" ".join(telnet.match.group(0).split()))
+            raise JasminError(detail=" ".join(telnet.match.group(0).decode('utf-8').split()))
 
         updates = request.data
 
@@ -338,7 +338,7 @@ class SMPPCCMViewSet(ViewSet):
                 ])
 
             if matched_index != 2:
-                error_detail = telnet.match.group(1).strip() if telnet.match.group(1) else 'Unknown error'
+                error_detail = telnet.match.group(1).strip() if telnet.match.group(1).decode('utf-8') else 'Unknown error'
                 raise JasminSyntaxError(detail=error_detail)
 
         # Complete the update process
@@ -350,7 +350,7 @@ class SMPPCCMViewSet(ViewSet):
         ])
 
         if ok_index == 0:
-            error_detail = telnet.match.group(1).strip()
+            error_detail = telnet.match.group(1).decode('utf-8').strip()
             raise JasminSyntaxError(detail=error_detail)
 
         telnet.sendline('persist\n')
